@@ -3,6 +3,7 @@ import type { Evidence, Tender } from '@workspace/api-client-react';
 import { Check, ClipboardList, LoaderCircle, Sparkles } from 'lucide-react';
 import { Button, Dialog, Field, Pill, cn, inputClass } from './ui-kit';
 import { DocumentReview } from './document-review';
+import { RequirementWorkspace } from './requirements/requirement-workspace';
 
 interface Props {
   tender: Tender;
@@ -46,6 +47,7 @@ export function RequirementsPanel({ tender, files, saving, extracting, error, on
       <div className="flex gap-2"><Button variant="secondary" onClick={onUpload} disabled={extracting} data-testid="button-upload-tender">Upload tender</Button>
         <Button onClick={() => setConsentOpen(true)} disabled={extracting || saving || !rfpFiles.length} data-testid="button-extract-requirements"><Sparkles size={15}/>{extraction ? 'Extract again' : 'Extract from tender'}</Button></div>
     </div>
+    <RequirementWorkspace tender={tender} files={files}/>
     {extracting && <div role="status" className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm"><LoaderCircle size={18} className="animate-spin"/>Reading tender documents and extracting requirements. Your saved brief will not be overwritten.</div>}
     {error && <div role={waitingForOcr ? 'status' : 'alert'} className={cn('rounded-xl border p-4 text-sm', waitingForOcr ? 'border-amber-900/20 bg-amber-900/5 text-amber-950' : 'border-destructive/20 bg-destructive/5 text-destructive')}>
       {waitingForOcr && <p className="mb-2 font-bold">OCR verification required—not a failed upload</p>}

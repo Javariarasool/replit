@@ -5,6 +5,7 @@ import { ExtractTenderRequirementsBody, ExtractTenderRequirementsParams, Extract
 import { requireAuth, ownedTender, tenderView } from "../lib/tender-data";
 import { extractTenderRequirements, requirementsInFlight, sameTenderSources } from "../lib/tender-requirements";
 import { OcrReviewRequiredError } from "../lib/document-extractions";
+import { appendRequirementDrafts } from "../lib/requirement-items";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -26,8 +27,12 @@ router.post("/tenders/:tenderId/requirements/extract", async (req, res): Promise
     if (!sameTenderSources(currentFiles, extraction)) {
       res.status(409).json({ error: "Tender documents changed during extraction. Run extraction again against the current documents." }); return;
     }
-    const [updated] = await db.update(tendersTable).set({ requirementsExtraction: extraction, updatedAt: new Date() })
-      .where(and(eq(tendersTable.id, tender.id), eq(tendersTable.ownerId, owner))).returning();
+    const updated = await db.transaction(async tx => {
+      await appendRequirementDrafts(tx, tender.id, owner, extraction.id, extraction.items ?? []);
+      const [row] = await tx.update(tendersTable).set({ requirementsExtraction: extraction, updatedAt: new Date() })
+        .where(and(eq(tendersTable.id, tender.id), eq(tendersTable.ownerId, owner))).returning();
+      return row;
+    });
     if (!updated) { res.status(404).json({ error: "Tender was removed during extraction." }); return; }
     res.json(ExtractTenderRequirementsResponse.parse(await tenderView(updated)));
   } catch (error) {

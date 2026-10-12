@@ -22,6 +22,7 @@ export interface RequirementsExtraction {
   warnings: string[];
   extractedAt: string;
   reviewedAt: string | null;
+  items?: import("./requirement-items").RequirementDraft[];
 }
 
 export const tendersTable = pgTable("tenders", {

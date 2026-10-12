@@ -195,6 +195,136 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
+  /tenders/{tenderId}/requirement-items:
+    get:
+      operationId: listRequirementItems
+      tags: [requirement-items]
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      responses:
+        "200":
+          description: Individual requirements and their evidence and supplier options.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/RequirementItem" } }
+    post:
+      operationId: createRequirementItem
+      tags: [requirement-items]
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RequirementDraft" }
+      responses:
+        "201":
+          description: Added individual requirement.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RequirementItem" }
+  /tenders/{tenderId}/requirement-items/import:
+    post:
+      operationId: importRequirementItems
+      tags: [requirement-items]
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExtractRequirementsInput" }
+      responses:
+        "200":
+          description: Requirements added without overwriting existing human work.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/RequirementItem" } }
+  /requirement-items/{requirementId}:
+    parameters:
+      - name: requirementId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: updateRequirementItem
+      tags: [requirement-items]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RequirementItemUpdate" }
+      responses:
+        "200":
+          description: Updated requirement.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RequirementItem" }
+    delete:
+      operationId: deleteRequirementItem
+      tags: [requirement-items]
+      responses:
+        "204": { description: Requirement removed; original evidence files retained. }
+  /requirement-items/{requirementId}/research:
+    parameters:
+      - name: requirementId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: researchRequirementSuppliers
+      tags: [requirement-items]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExtractRequirementsInput" }
+      responses:
+        "200":
+          description: Persisted sourced product and Pakistan-delivery supplier candidates awaiting review.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RequirementItem" }
+  /requirement-items/{requirementId}/options:
+    parameters:
+      - name: requirementId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: addRequirementSupplierOption
+      tags: [requirement-items]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SupplierOptionInput" }
+      responses:
+        "201":
+          description: Added manually sourced supplier quotation or product.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RequirementItem" }
+  /requirement-items/{requirementId}/selection:
+    parameters:
+      - name: requirementId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: selectRequirementSupplier
+      tags: [requirement-items]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RequirementSelectionInput" }
+      responses:
+        "200":
+          description: Human-reviewed product and supplier selection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RequirementItem" }
   /tenders/{tenderId}/evidence:
     get:
       operationId: listTenderEvidence
@@ -723,6 +853,108 @@ components:
       required: [aiConsent]
       properties:
         aiConsent: { type: boolean, enum: [true] }
+    RequirementDraft:
+      type: object
+      required: [title, description, category, sourceReference, sourceQuote, quantity, unit, requiresVendor]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        description: { type: string, minLength: 1, maxLength: 8000 }
+        category: { type: string, enum: [technical, eligibility, commercial, submission, delivery, services, other] }
+        sourceReference: { type: string, maxLength: 2000 }
+        sourceQuote: { type: string, maxLength: 4000 }
+        quantity: { type: [number, "null"], exclusiveMinimum: 0 }
+        unit: { type: [string, "null"] }
+        requiresVendor: { type: boolean }
+    RequirementWebEvidence:
+      type: object
+      required: [id, url, title, claim, verified]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, format: uri }
+        title: { type: string }
+        claim: { type: string }
+        verified: { type: boolean }
+    SupplierOptionInput:
+      type: object
+      required: [manufacturer, product, model, supplier, supplierUrl, datasheetUrl, specifications, matchSummary, gaps, deliveryStatus, deliverySourceUrl, deliveryNotes, pricePkr, priceSourceUrl, quoteEvidenceId, priceType, taxStatus, priceNotes, sources]
+      properties:
+        manufacturer: { type: string }
+        product: { type: string, minLength: 1 }
+        model: { type: string }
+        supplier: { type: string, minLength: 1 }
+        supplierUrl: { type: [string, "null"], format: uri }
+        datasheetUrl: { type: [string, "null"], format: uri }
+        specifications: { type: array, items: { type: string } }
+        matchSummary: { type: string }
+        gaps: { type: array, items: { type: string } }
+        deliveryStatus: { type: string, enum: [source_states_pakistan, unconfirmed] }
+        deliverySourceUrl: { type: [string, "null"], format: uri }
+        deliveryNotes: { type: string }
+        pricePkr: { type: [number, "null"], minimum: 0 }
+        priceSourceUrl: { type: [string, "null"], format: uri }
+        quoteEvidenceId: { type: [string, "null"], format: uuid }
+        priceType: { type: string, enum: [published, quotation, not_published] }
+        taxStatus: { type: string, enum: [included, excluded, unknown] }
+        priceNotes: { type: string }
+        sources:
+          type: array
+          items:
+            type: object
+            required: [url, title, quote]
+            properties:
+              url: { type: string, format: uri }
+              title: { type: string }
+              quote: { type: string }
+    SupplierOption:
+      allOf:
+        - $ref: "#/components/schemas/SupplierOptionInput"
+        - type: object
+          required: [id, origin, checkedAt, reviewed]
+          properties:
+            id: { type: string, format: uuid }
+            origin: { type: string, enum: [web, manual] }
+            checkedAt: { type: string, format: date-time }
+            reviewed: { type: boolean }
+    RequirementItemUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        description: { type: string, minLength: 1, maxLength: 8000 }
+        category: { type: string, enum: [technical, eligibility, commercial, submission, delivery, services, other] }
+        sourceReference: { type: string, maxLength: 2000 }
+        sourceQuote: { type: string, maxLength: 4000 }
+        quantity: { type: [number, "null"], exclusiveMinimum: 0 }
+        unit: { type: [string, "null"] }
+        requiresVendor: { type: boolean }
+        reviewStatus: { type: string, enum: [pending, approved] }
+        confirmed: { type: boolean }
+        evidenceIds: { type: array, maxItems: 100, items: { type: string, format: uuid } }
+        webEvidence: { type: array, maxItems: 100, items: { $ref: "#/components/schemas/RequirementWebEvidence" } }
+    RequirementSelectionInput:
+      type: object
+      required: [optionId, confirmed]
+      properties:
+        optionId: { type: [string, "null"], format: uuid }
+        confirmed: { type: boolean, enum: [true] }
+    RequirementItem:
+      allOf:
+        - $ref: "#/components/schemas/RequirementDraft"
+        - type: object
+          required: [id, tenderId, extractionId, reviewStatus, evidenceIds, webEvidence, options, selectedOptionId, researchStatus, researchError, lastResearchedAt, createdAt, updatedAt]
+          properties:
+            id: { type: string, format: uuid }
+            tenderId: { type: string, format: uuid }
+            extractionId: { type: [string, "null"], format: uuid }
+            reviewStatus: { type: string, enum: [pending, approved] }
+            evidenceIds: { type: array, items: { type: string, format: uuid } }
+            webEvidence: { type: array, items: { $ref: "#/components/schemas/RequirementWebEvidence" } }
+            options: { type: array, items: { $ref: "#/components/schemas/SupplierOption" } }
+            selectedOptionId: { type: [string, "null"], format: uuid }
+            researchStatus: { type: string, enum: [idle, complete, failed] }
+            researchError: { type: [string, "null"] }
+            lastResearchedAt: { type: [string, "null"], format: date-time }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
     RequirementsExtraction:
       type: object
       required: [id, requirements, summary, sourceFiles, warnings, extractedAt, reviewedAt]
@@ -732,6 +964,7 @@ components:
         summary: { type: string }
         extractedAt: { type: string, format: date-time }
         reviewedAt: { type: [string, "null"], format: date-time }
+        items: { type: array, items: { $ref: "#/components/schemas/RequirementDraft" } }
         warnings:
           type: array
           items: { type: string }

@@ -301,6 +301,229 @@ export interface ExtractRequirementsInput {
   aiConsent: true;
 }
 
+export type RequirementDraftCategory = typeof RequirementDraftCategory[keyof typeof RequirementDraftCategory];
+
+
+export const RequirementDraftCategory = {
+  technical: 'technical',
+  eligibility: 'eligibility',
+  commercial: 'commercial',
+  submission: 'submission',
+  delivery: 'delivery',
+  services: 'services',
+  other: 'other',
+} as const;
+
+export interface RequirementDraft {
+  /**
+     * @minLength 1
+     * @maxLength 300
+     */
+  title: string;
+  /**
+     * @minLength 1
+     * @maxLength 8000
+     */
+  description: string;
+  category: RequirementDraftCategory;
+  /** @maxLength 2000 */
+  sourceReference: string;
+  /** @maxLength 4000 */
+  sourceQuote: string;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  quantity: number | null;
+  /** @nullable */
+  unit: string | null;
+  requiresVendor: boolean;
+}
+
+export interface RequirementWebEvidence {
+  id: string;
+  url: string;
+  title: string;
+  claim: string;
+  verified: boolean;
+}
+
+export type SupplierOptionInputDeliveryStatus = typeof SupplierOptionInputDeliveryStatus[keyof typeof SupplierOptionInputDeliveryStatus];
+
+
+export const SupplierOptionInputDeliveryStatus = {
+  source_states_pakistan: 'source_states_pakistan',
+  unconfirmed: 'unconfirmed',
+} as const;
+
+export type SupplierOptionInputPriceType = typeof SupplierOptionInputPriceType[keyof typeof SupplierOptionInputPriceType];
+
+
+export const SupplierOptionInputPriceType = {
+  published: 'published',
+  quotation: 'quotation',
+  not_published: 'not_published',
+} as const;
+
+export type SupplierOptionInputTaxStatus = typeof SupplierOptionInputTaxStatus[keyof typeof SupplierOptionInputTaxStatus];
+
+
+export const SupplierOptionInputTaxStatus = {
+  included: 'included',
+  excluded: 'excluded',
+  unknown: 'unknown',
+} as const;
+
+export type SupplierOptionInputSourcesItem = {
+  url: string;
+  title: string;
+  quote: string;
+};
+
+export interface SupplierOptionInput {
+  manufacturer: string;
+  /** @minLength 1 */
+  product: string;
+  model: string;
+  /** @minLength 1 */
+  supplier: string;
+  /** @nullable */
+  supplierUrl: string | null;
+  /** @nullable */
+  datasheetUrl: string | null;
+  specifications: string[];
+  matchSummary: string;
+  gaps: string[];
+  deliveryStatus: SupplierOptionInputDeliveryStatus;
+  /** @nullable */
+  deliverySourceUrl: string | null;
+  deliveryNotes: string;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  pricePkr: number | null;
+  /** @nullable */
+  priceSourceUrl: string | null;
+  /** @nullable */
+  quoteEvidenceId: string | null;
+  priceType: SupplierOptionInputPriceType;
+  taxStatus: SupplierOptionInputTaxStatus;
+  priceNotes: string;
+  sources: SupplierOptionInputSourcesItem[];
+}
+
+export type SupplierOptionOrigin = typeof SupplierOptionOrigin[keyof typeof SupplierOptionOrigin];
+
+
+export const SupplierOptionOrigin = {
+  web: 'web',
+  manual: 'manual',
+} as const;
+
+export type SupplierOption = SupplierOptionInput & {
+  id: string;
+  origin: SupplierOptionOrigin;
+  checkedAt: string;
+  reviewed: boolean;
+};
+
+export type RequirementItemUpdateCategory = typeof RequirementItemUpdateCategory[keyof typeof RequirementItemUpdateCategory];
+
+
+export const RequirementItemUpdateCategory = {
+  technical: 'technical',
+  eligibility: 'eligibility',
+  commercial: 'commercial',
+  submission: 'submission',
+  delivery: 'delivery',
+  services: 'services',
+  other: 'other',
+} as const;
+
+export type RequirementItemUpdateReviewStatus = typeof RequirementItemUpdateReviewStatus[keyof typeof RequirementItemUpdateReviewStatus];
+
+
+export const RequirementItemUpdateReviewStatus = {
+  pending: 'pending',
+  approved: 'approved',
+} as const;
+
+export interface RequirementItemUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 300
+     */
+  title?: string;
+  /**
+     * @minLength 1
+     * @maxLength 8000
+     */
+  description?: string;
+  category?: RequirementItemUpdateCategory;
+  /** @maxLength 2000 */
+  sourceReference?: string;
+  /** @maxLength 4000 */
+  sourceQuote?: string;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  quantity?: number | null;
+  /** @nullable */
+  unit?: string | null;
+  requiresVendor?: boolean;
+  reviewStatus?: RequirementItemUpdateReviewStatus;
+  confirmed?: boolean;
+  /** @maxItems 100 */
+  evidenceIds?: string[];
+  /** @maxItems 100 */
+  webEvidence?: RequirementWebEvidence[];
+}
+
+export interface RequirementSelectionInput {
+  /** @nullable */
+  optionId: string | null;
+  confirmed: true;
+}
+
+export type RequirementItemReviewStatus = typeof RequirementItemReviewStatus[keyof typeof RequirementItemReviewStatus];
+
+
+export const RequirementItemReviewStatus = {
+  pending: 'pending',
+  approved: 'approved',
+} as const;
+
+export type RequirementItemResearchStatus = typeof RequirementItemResearchStatus[keyof typeof RequirementItemResearchStatus];
+
+
+export const RequirementItemResearchStatus = {
+  idle: 'idle',
+  complete: 'complete',
+  failed: 'failed',
+} as const;
+
+export type RequirementItem = RequirementDraft & ({
+  id: string;
+  tenderId: string;
+  /** @nullable */
+  extractionId: string | null;
+  reviewStatus: RequirementItemReviewStatus;
+  evidenceIds: string[];
+  webEvidence: RequirementWebEvidence[];
+  options: SupplierOption[];
+  /** @nullable */
+  selectedOptionId: string | null;
+  researchStatus: RequirementItemResearchStatus;
+  /** @nullable */
+  researchError: string | null;
+  /** @nullable */
+  lastResearchedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+});
+
 export type RequirementsExtractionSourceFilesItem = {
   id: string;
   name: string;
@@ -313,6 +536,7 @@ export interface RequirementsExtraction {
   extractedAt: string;
   /** @nullable */
   reviewedAt: string | null;
+  items?: RequirementDraft[];
   warnings: string[];
   sourceFiles: RequirementsExtractionSourceFilesItem[];
 }
@@ -563,3 +787,4 @@ export type GetDocumentExtractionParams = {
  */
 objectPath: string;
 };
+

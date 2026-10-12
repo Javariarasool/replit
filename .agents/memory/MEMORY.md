@@ -1,6 +1,7 @@
 - [Proposal library scope](proposal-library-scope.md) — reusable private tender–proposal pairs; historical documents guide structure, not current bidder facts or prices.
-- [Automatic tender requirements](requirements-extraction-scope.md) — tender uploads should extract clauses automatically, without silently replacing human corrections.
+- [Automatic tender requirements](requirements-extraction-scope.md) — automatic clauses, per-requirement evidence and human vendor choices; Pakistan-delivery suppliers and PKR pricing.
 - [OpenAPI request bodies](openapi-request-bodies.md) — named body schemas avoid collisions between generated TypeScript body types and Zod exports.
 - [OCR privacy boundary](ocr-privacy.md) — local recognition avoids image-provider consent; draft consent must never imply permission to send original images remotely.
 - [Post-merge stale listeners](post-merge-listeners.md) — older app processes can survive reconciliation; inspect actual port owners before retrying failed workflows.
 - [OCR execution budget](ocr-execution.md) — limit native threads as well as concurrent jobs; default engine parallelism slowed small scans under the CPU quota.
+- [Live web research](live-web-research.md) — search rejects strict JSON mode; validate prompt-requested JSON and retain provider-citation grounding.

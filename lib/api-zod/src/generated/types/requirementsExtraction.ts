@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RequirementDraft } from './requirementDraft';
 import type { RequirementsExtractionSourceFilesItem } from './requirementsExtractionSourceFilesItem';
 
 export interface RequirementsExtraction {
@@ -14,6 +15,7 @@ export interface RequirementsExtraction {
   extractedAt: Date;
   /** @nullable */
   reviewedAt: Date | null;
+  items?: RequirementDraft[];
   warnings: string[];
   sourceFiles: RequirementsExtractionSourceFilesItem[];
 }

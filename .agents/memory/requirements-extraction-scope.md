@@ -32,3 +32,21 @@ The user wants requirements separated individually, with evidence attached to ea
 **Why:** The user asked for requirement-by-requirement evidence and purchasing decisions rather than a single extracted text brief.
 
 **How to apply:** Preserve clause-level source references and evidence links. Product/vendor comparisons and human selections must belong to the relevant requirement, not just the tender as a whole.
+
+The user specified "suppliers that deliver in pakistan both national and international" and selected Pakistan supplier prices in PKR.
+
+**Why:** The user clarified the supplier market and currency; international OEM list prices do not establish a Pakistan-deliverable supplier quotation.
+
+**How to apply:** Include domestic and international suppliers serving Pakistan. Cite prices and delivery claims, flag missing quotations or unconfirmed delivery, and never invent PKR prices through unsupported currency conversion.
+
+When individual requirements exist, human-reviewed cards and supplier selections govern new drafts; the full brief remains a reference rather than a competing source of quantities or product choices.
+
+**Why:** Two editable versions of the requirements can contradict one another. Clause-level evidence and purchasing decisions must not be overridden by an older paragraph brief.
+
+**How to apply:** Preserve human edits when re-extracting and require review against the current source documents. When importing older tenders, prefer the human-saved brief over an unreviewed extraction.
+
+Linking evidence to a requirement is not proof that its contents establish every required fact. Supplier selection defines the offered configuration, not independently verified compliance.
+
+**Why:** A draft cited a pricing-only quotation for port count and warranty duration it never stated, even while marking those claims unverified. Such citations can mislead reviewers.
+
+**How to apply:** Use actual source contents to support each citation. Keep unsupported technical and warranty claims as explicit gaps; list insufficient linked documents only as received for review.

@@ -7,6 +7,7 @@ import {
   useListTenderEvidence, useAddTenderEvidence, useDeleteEvidence, useListVendorSources, useAddVendorSource,
   useReviewVendorSource, useListProposals, useGenerateProposalPair, useUpdateProposal, useRequestUploadUrl,
   useResearchVendorSource, useExtractTenderRequirements,
+  useListRequirementItems, getListRequirementItemsQueryKey,
   getGetDashboardSummaryQueryKey, getListTendersQueryKey, getGetTenderQueryKey, getListTenderEvidenceQueryKey,
   getListVendorSourcesQueryKey, getListProposalsQueryKey,
 } from '@workspace/api-client-react';
@@ -152,10 +153,12 @@ function TenderWorkspace() {
   const addSource = useAddVendorSource(); const reviewSource = useReviewVendorSource(); const [tab, setTab] = useState<'requirements' | 'evidence' | 'sources' | 'proposals'>('requirements');
   const [dialog, setDialog] = useState<DialogName>(null); const [deleteConfirm, setDeleteConfirm] = useState(false); const [error, setError] = useState('');
   const tender = detail.data;
+  const requirementItems = useListRequirementItems(id);
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: getGetTenderQueryKey(id) }); void qc.invalidateQueries({ queryKey: getListTendersQueryKey() });
     void qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); void qc.invalidateQueries({ queryKey: getListTenderEvidenceQueryKey(id) });
     void qc.invalidateQueries({ queryKey: getListVendorSourcesQueryKey(id) }); void qc.invalidateQueries({ queryKey: getListProposalsQueryKey(id) });
+    void qc.invalidateQueries({ queryKey: getListRequirementItemsQueryKey(id) });
   };
   if (detail.isLoading) return <PageSkeleton/>;
   if (detail.isError || !tender) return <QueryError retry={() => void detail.refetch()}/>;
@@ -164,7 +167,10 @@ function TenderWorkspace() {
   const runGenerate = (ids: string[]) => { setError(''); gen.mutate({ tenderId: id, data: { aiConsent: true, ...(ids.length ? { libraryEntryIds: ids } : {}) } }, { onSuccess: refresh, onError: e => setError(errorText(e)) }); setDialog(null); };
   const runExtraction = () => { setTab('requirements'); setRequirementError(''); extract.mutate({ tenderId: id, data: { aiConsent: true } }, { onSuccess: refresh, onError: e => { refresh(); setRequirementError(`Your uploaded documents and saved brief are unchanged. ${errorText(e)}`); } }); };
   const requirementsBlocked = extract.isPending ? 'Tender requirements are being extracted. Review them before generating.' :
-    tender.requirementsExtraction && !tender.requirementsExtraction.reviewedAt ? 'Review the automatically extracted requirements, load them into the editor, and save to confirm review before generating.' :
+    requirementItems.isLoading || requirementItems.isError ? 'Individual requirements must be loaded before proposal generation.' :
+    requirementItems.data?.some(r => r.reviewStatus !== 'approved' || r.extractionId !== (tender.requirementsExtraction?.id ?? null)) ? 'Review each individual requirement against the current tender before generating.' :
+    requirementItems.data?.some(r => r.requiresVendor && !r.options.some(o => o.id === r.selectedOptionId && o.reviewed)) ? 'Choose and confirm a supplier/product for every requirement that needs a vendor.' :
+    !requirementItems.data?.length && tender.requirementsExtraction && !tender.requirementsExtraction.reviewedAt ? 'Review the automatically extracted requirements, load them into the editor, and save to confirm review before generating.' :
     tender.requirementsExtraction && evidenceQuery.data && JSON.stringify(evidenceQuery.data.filter(f => f.category === 'tender_rfp').map(f => f.id).sort()) !== JSON.stringify(tender.requirementsExtraction.sourceFiles.map(f => f.id).sort()) ? 'Tender documents changed. Extract and review the requirements again before generating.' : '';
   const nav = [
     { key: 'requirements', label: 'Requirements', icon: <ClipboardList size={15}/> },

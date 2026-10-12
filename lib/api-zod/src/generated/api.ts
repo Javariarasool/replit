@@ -62,6 +62,18 @@ export const LogoutBrowserSessionResponse = zod.void()
  */
 
 
+export const getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemTitleMax = 300;
+
+export const getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemDescriptionMax = 8000;
+
+export const getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemSourceReferenceMax = 2000;
+
+export const getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemSourceQuoteMax = 4000;
+
+export const getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin = 0;
+
+
+
 export const GetDashboardSummaryResponse = zod.object({
   "activeTenders": zod.number().int(),
   "awaitingReview": zod.number().int(),
@@ -87,6 +99,16 @@ export const GetDashboardSummaryResponse = zod.object({
   "summary": zod.string(),
   "extractedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable(),
+  "items": zod.array(zod.object({
+  "title": zod.string().min(1).max(getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemTitleMax),
+  "description": zod.string().min(1).max(getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemSourceReferenceMax),
+  "sourceQuote": zod.string().max(getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemSourceQuoteMax),
+  "quantity": zod.number().gt(getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+})).optional(),
   "warnings": zod.array(zod.string()),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -100,6 +122,18 @@ export const GetDashboardSummaryResponse = zod.object({
 /**
  * @summary List the user's tenders
  */
+
+
+export const listTendersResponseTwoRequirementsExtractionOneItemsItemTitleMax = 300;
+
+export const listTendersResponseTwoRequirementsExtractionOneItemsItemDescriptionMax = 8000;
+
+export const listTendersResponseTwoRequirementsExtractionOneItemsItemSourceReferenceMax = 2000;
+
+export const listTendersResponseTwoRequirementsExtractionOneItemsItemSourceQuoteMax = 4000;
+
+export const listTendersResponseTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin = 0;
+
 
 
 export const ListTendersResponseItem = zod.object({
@@ -123,6 +157,16 @@ export const ListTendersResponseItem = zod.object({
   "summary": zod.string(),
   "extractedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable(),
+  "items": zod.array(zod.object({
+  "title": zod.string().min(1).max(listTendersResponseTwoRequirementsExtractionOneItemsItemTitleMax),
+  "description": zod.string().min(1).max(listTendersResponseTwoRequirementsExtractionOneItemsItemDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(listTendersResponseTwoRequirementsExtractionOneItemsItemSourceReferenceMax),
+  "sourceQuote": zod.string().max(listTendersResponseTwoRequirementsExtractionOneItemsItemSourceQuoteMax),
+  "quantity": zod.number().gt(listTendersResponseTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+})).optional(),
   "warnings": zod.array(zod.string()),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -138,6 +182,8 @@ export const ListTendersResponse = zod.array(ListTendersResponseItem)
  */
 
 
+
+
 export const CreateTenderBody = zod.object({
   "title": zod.string().min(1),
   "agency": zod.string().min(1),
@@ -147,6 +193,19 @@ export const CreateTenderBody = zod.object({
   "summary": zod.string().optional(),
   "requirements": zod.string().optional()
 })
+
+
+
+export const createTenderResponseTwoRequirementsExtractionOneItemsItemTitleMax = 300;
+
+export const createTenderResponseTwoRequirementsExtractionOneItemsItemDescriptionMax = 8000;
+
+export const createTenderResponseTwoRequirementsExtractionOneItemsItemSourceReferenceMax = 2000;
+
+export const createTenderResponseTwoRequirementsExtractionOneItemsItemSourceQuoteMax = 4000;
+
+export const createTenderResponseTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin = 0;
+
 
 
 export const CreateTenderResponse = zod.object({
@@ -170,6 +229,16 @@ export const CreateTenderResponse = zod.object({
   "summary": zod.string(),
   "extractedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable(),
+  "items": zod.array(zod.object({
+  "title": zod.string().min(1).max(createTenderResponseTwoRequirementsExtractionOneItemsItemTitleMax),
+  "description": zod.string().min(1).max(createTenderResponseTwoRequirementsExtractionOneItemsItemDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(createTenderResponseTwoRequirementsExtractionOneItemsItemSourceReferenceMax),
+  "sourceQuote": zod.string().max(createTenderResponseTwoRequirementsExtractionOneItemsItemSourceQuoteMax),
+  "quantity": zod.number().gt(createTenderResponseTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+})).optional(),
   "warnings": zod.array(zod.string()),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -185,6 +254,19 @@ export const CreateTenderResponse = zod.object({
 export const GetTenderParams = zod.object({
   "tenderId": zod.coerce.string().uuid()
 })
+
+
+
+export const getTenderResponseOneTwoRequirementsExtractionOneItemsItemTitleMax = 300;
+
+export const getTenderResponseOneTwoRequirementsExtractionOneItemsItemDescriptionMax = 8000;
+
+export const getTenderResponseOneTwoRequirementsExtractionOneItemsItemSourceReferenceMax = 2000;
+
+export const getTenderResponseOneTwoRequirementsExtractionOneItemsItemSourceQuoteMax = 4000;
+
+export const getTenderResponseOneTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin = 0;
+
 
 
 export const GetTenderResponse = zod.object({
@@ -208,6 +290,16 @@ export const GetTenderResponse = zod.object({
   "summary": zod.string(),
   "extractedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable(),
+  "items": zod.array(zod.object({
+  "title": zod.string().min(1).max(getTenderResponseOneTwoRequirementsExtractionOneItemsItemTitleMax),
+  "description": zod.string().min(1).max(getTenderResponseOneTwoRequirementsExtractionOneItemsItemDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(getTenderResponseOneTwoRequirementsExtractionOneItemsItemSourceReferenceMax),
+  "sourceQuote": zod.string().max(getTenderResponseOneTwoRequirementsExtractionOneItemsItemSourceQuoteMax),
+  "quantity": zod.number().gt(getTenderResponseOneTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+})).optional(),
   "warnings": zod.array(zod.string()),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -228,6 +320,9 @@ export const UpdateTenderParams = zod.object({
 })
 
 
+
+
+
 export const UpdateTenderBody = zod.object({
   "title": zod.string().min(1).optional(),
   "agency": zod.string().min(1).optional(),
@@ -239,6 +334,19 @@ export const UpdateTenderBody = zod.object({
   "status": zod.enum(['draft', 'in_progress', 'ready_for_review', 'submitted']).optional(),
   "reviewedExtractionId": zod.string().uuid().optional()
 })
+
+
+
+export const updateTenderResponseTwoRequirementsExtractionOneItemsItemTitleMax = 300;
+
+export const updateTenderResponseTwoRequirementsExtractionOneItemsItemDescriptionMax = 8000;
+
+export const updateTenderResponseTwoRequirementsExtractionOneItemsItemSourceReferenceMax = 2000;
+
+export const updateTenderResponseTwoRequirementsExtractionOneItemsItemSourceQuoteMax = 4000;
+
+export const updateTenderResponseTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin = 0;
+
 
 
 export const UpdateTenderResponse = zod.object({
@@ -262,6 +370,16 @@ export const UpdateTenderResponse = zod.object({
   "summary": zod.string(),
   "extractedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable(),
+  "items": zod.array(zod.object({
+  "title": zod.string().min(1).max(updateTenderResponseTwoRequirementsExtractionOneItemsItemTitleMax),
+  "description": zod.string().min(1).max(updateTenderResponseTwoRequirementsExtractionOneItemsItemDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(updateTenderResponseTwoRequirementsExtractionOneItemsItemSourceReferenceMax),
+  "sourceQuote": zod.string().max(updateTenderResponseTwoRequirementsExtractionOneItemsItemSourceQuoteMax),
+  "quantity": zod.number().gt(updateTenderResponseTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+})).optional(),
   "warnings": zod.array(zod.string()),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -293,6 +411,19 @@ export const ExtractTenderRequirementsBody = zod.object({
 })
 
 
+
+export const extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemTitleMax = 300;
+
+export const extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemDescriptionMax = 8000;
+
+export const extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemSourceReferenceMax = 2000;
+
+export const extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemSourceQuoteMax = 4000;
+
+export const extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin = 0;
+
+
+
 export const ExtractTenderRequirementsResponse = zod.object({
   "title": zod.string().min(1),
   "agency": zod.string().min(1),
@@ -314,6 +445,16 @@ export const ExtractTenderRequirementsResponse = zod.object({
   "summary": zod.string(),
   "extractedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable(),
+  "items": zod.array(zod.object({
+  "title": zod.string().min(1).max(extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemTitleMax),
+  "description": zod.string().min(1).max(extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemSourceReferenceMax),
+  "sourceQuote": zod.string().max(extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemSourceQuoteMax),
+  "quantity": zod.number().gt(extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+})).optional(),
   "warnings": zod.array(zod.string()),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
@@ -323,12 +464,698 @@ export const ExtractTenderRequirementsResponse = zod.object({
 }))
 
 
+export const ListRequirementItemsParams = zod.object({
+  "tenderId": zod.coerce.string().uuid()
+})
+
+export const listRequirementItemsResponseOneTitleMax = 300;
+
+export const listRequirementItemsResponseOneDescriptionMax = 8000;
+
+export const listRequirementItemsResponseOneSourceReferenceMax = 2000;
+
+export const listRequirementItemsResponseOneSourceQuoteMax = 4000;
+
+export const listRequirementItemsResponseOneQuantityExclusiveMin = 0;
+
+
+
+export const listRequirementItemsResponseTwoOptionsItemOnePricePkrMin = 0;
+
+
+
+export const ListRequirementItemsResponseItem = zod.object({
+  "title": zod.string().min(1).max(listRequirementItemsResponseOneTitleMax),
+  "description": zod.string().min(1).max(listRequirementItemsResponseOneDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(listRequirementItemsResponseOneSourceReferenceMax),
+  "sourceQuote": zod.string().max(listRequirementItemsResponseOneSourceQuoteMax),
+  "quantity": zod.number().gt(listRequirementItemsResponseOneQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "tenderId": zod.string().uuid(),
+  "extractionId": zod.string().uuid().nullable(),
+  "reviewStatus": zod.enum(['pending', 'approved']),
+  "evidenceIds": zod.array(zod.string().uuid()),
+  "webEvidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "claim": zod.string(),
+  "verified": zod.boolean()
+})),
+  "options": zod.array(zod.object({
+  "manufacturer": zod.string(),
+  "product": zod.string().min(1),
+  "model": zod.string(),
+  "supplier": zod.string().min(1),
+  "supplierUrl": zod.string().url().nullable(),
+  "datasheetUrl": zod.string().url().nullable(),
+  "specifications": zod.array(zod.string()),
+  "matchSummary": zod.string(),
+  "gaps": zod.array(zod.string()),
+  "deliveryStatus": zod.enum(['source_states_pakistan', 'unconfirmed']),
+  "deliverySourceUrl": zod.string().url().nullable(),
+  "deliveryNotes": zod.string(),
+  "pricePkr": zod.number().min(listRequirementItemsResponseTwoOptionsItemOnePricePkrMin).nullable(),
+  "priceSourceUrl": zod.string().url().nullable(),
+  "quoteEvidenceId": zod.string().uuid().nullable(),
+  "priceType": zod.enum(['published', 'quotation', 'not_published']),
+  "taxStatus": zod.enum(['included', 'excluded', 'unknown']),
+  "priceNotes": zod.string(),
+  "sources": zod.array(zod.object({
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "quote": zod.string()
+}))
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "origin": zod.enum(['web', 'manual']),
+  "checkedAt": zod.coerce.date(),
+  "reviewed": zod.boolean()
+}))),
+  "selectedOptionId": zod.string().uuid().nullable(),
+  "researchStatus": zod.enum(['idle', 'complete', 'failed']),
+  "researchError": zod.string().nullable(),
+  "lastResearchedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+export const ListRequirementItemsResponse = zod.array(ListRequirementItemsResponseItem)
+
+
+export const CreateRequirementItemParams = zod.object({
+  "tenderId": zod.coerce.string().uuid()
+})
+
+export const createRequirementItemBodyTitleMax = 300;
+
+export const createRequirementItemBodyDescriptionMax = 8000;
+
+export const createRequirementItemBodySourceReferenceMax = 2000;
+
+export const createRequirementItemBodySourceQuoteMax = 4000;
+
+export const createRequirementItemBodyQuantityExclusiveMin = 0;
+
+
+
+export const CreateRequirementItemBody = zod.object({
+  "title": zod.string().min(1).max(createRequirementItemBodyTitleMax),
+  "description": zod.string().min(1).max(createRequirementItemBodyDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(createRequirementItemBodySourceReferenceMax),
+  "sourceQuote": zod.string().max(createRequirementItemBodySourceQuoteMax),
+  "quantity": zod.number().gt(createRequirementItemBodyQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+})
+
+export const createRequirementItemResponseOneTitleMax = 300;
+
+export const createRequirementItemResponseOneDescriptionMax = 8000;
+
+export const createRequirementItemResponseOneSourceReferenceMax = 2000;
+
+export const createRequirementItemResponseOneSourceQuoteMax = 4000;
+
+export const createRequirementItemResponseOneQuantityExclusiveMin = 0;
+
+
+
+export const createRequirementItemResponseTwoOptionsItemOnePricePkrMin = 0;
+
+
+
+export const CreateRequirementItemResponse = zod.object({
+  "title": zod.string().min(1).max(createRequirementItemResponseOneTitleMax),
+  "description": zod.string().min(1).max(createRequirementItemResponseOneDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(createRequirementItemResponseOneSourceReferenceMax),
+  "sourceQuote": zod.string().max(createRequirementItemResponseOneSourceQuoteMax),
+  "quantity": zod.number().gt(createRequirementItemResponseOneQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "tenderId": zod.string().uuid(),
+  "extractionId": zod.string().uuid().nullable(),
+  "reviewStatus": zod.enum(['pending', 'approved']),
+  "evidenceIds": zod.array(zod.string().uuid()),
+  "webEvidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "claim": zod.string(),
+  "verified": zod.boolean()
+})),
+  "options": zod.array(zod.object({
+  "manufacturer": zod.string(),
+  "product": zod.string().min(1),
+  "model": zod.string(),
+  "supplier": zod.string().min(1),
+  "supplierUrl": zod.string().url().nullable(),
+  "datasheetUrl": zod.string().url().nullable(),
+  "specifications": zod.array(zod.string()),
+  "matchSummary": zod.string(),
+  "gaps": zod.array(zod.string()),
+  "deliveryStatus": zod.enum(['source_states_pakistan', 'unconfirmed']),
+  "deliverySourceUrl": zod.string().url().nullable(),
+  "deliveryNotes": zod.string(),
+  "pricePkr": zod.number().min(createRequirementItemResponseTwoOptionsItemOnePricePkrMin).nullable(),
+  "priceSourceUrl": zod.string().url().nullable(),
+  "quoteEvidenceId": zod.string().uuid().nullable(),
+  "priceType": zod.enum(['published', 'quotation', 'not_published']),
+  "taxStatus": zod.enum(['included', 'excluded', 'unknown']),
+  "priceNotes": zod.string(),
+  "sources": zod.array(zod.object({
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "quote": zod.string()
+}))
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "origin": zod.enum(['web', 'manual']),
+  "checkedAt": zod.coerce.date(),
+  "reviewed": zod.boolean()
+}))),
+  "selectedOptionId": zod.string().uuid().nullable(),
+  "researchStatus": zod.enum(['idle', 'complete', 'failed']),
+  "researchError": zod.string().nullable(),
+  "lastResearchedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+
+
+export const ImportRequirementItemsParams = zod.object({
+  "tenderId": zod.coerce.string().uuid()
+})
+
+export const ImportRequirementItemsBody = zod.object({
+  "aiConsent": zod.literal(true)
+})
+
+export const importRequirementItemsResponseOneTitleMax = 300;
+
+export const importRequirementItemsResponseOneDescriptionMax = 8000;
+
+export const importRequirementItemsResponseOneSourceReferenceMax = 2000;
+
+export const importRequirementItemsResponseOneSourceQuoteMax = 4000;
+
+export const importRequirementItemsResponseOneQuantityExclusiveMin = 0;
+
+
+
+export const importRequirementItemsResponseTwoOptionsItemOnePricePkrMin = 0;
+
+
+
+export const ImportRequirementItemsResponseItem = zod.object({
+  "title": zod.string().min(1).max(importRequirementItemsResponseOneTitleMax),
+  "description": zod.string().min(1).max(importRequirementItemsResponseOneDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(importRequirementItemsResponseOneSourceReferenceMax),
+  "sourceQuote": zod.string().max(importRequirementItemsResponseOneSourceQuoteMax),
+  "quantity": zod.number().gt(importRequirementItemsResponseOneQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "tenderId": zod.string().uuid(),
+  "extractionId": zod.string().uuid().nullable(),
+  "reviewStatus": zod.enum(['pending', 'approved']),
+  "evidenceIds": zod.array(zod.string().uuid()),
+  "webEvidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "claim": zod.string(),
+  "verified": zod.boolean()
+})),
+  "options": zod.array(zod.object({
+  "manufacturer": zod.string(),
+  "product": zod.string().min(1),
+  "model": zod.string(),
+  "supplier": zod.string().min(1),
+  "supplierUrl": zod.string().url().nullable(),
+  "datasheetUrl": zod.string().url().nullable(),
+  "specifications": zod.array(zod.string()),
+  "matchSummary": zod.string(),
+  "gaps": zod.array(zod.string()),
+  "deliveryStatus": zod.enum(['source_states_pakistan', 'unconfirmed']),
+  "deliverySourceUrl": zod.string().url().nullable(),
+  "deliveryNotes": zod.string(),
+  "pricePkr": zod.number().min(importRequirementItemsResponseTwoOptionsItemOnePricePkrMin).nullable(),
+  "priceSourceUrl": zod.string().url().nullable(),
+  "quoteEvidenceId": zod.string().uuid().nullable(),
+  "priceType": zod.enum(['published', 'quotation', 'not_published']),
+  "taxStatus": zod.enum(['included', 'excluded', 'unknown']),
+  "priceNotes": zod.string(),
+  "sources": zod.array(zod.object({
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "quote": zod.string()
+}))
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "origin": zod.enum(['web', 'manual']),
+  "checkedAt": zod.coerce.date(),
+  "reviewed": zod.boolean()
+}))),
+  "selectedOptionId": zod.string().uuid().nullable(),
+  "researchStatus": zod.enum(['idle', 'complete', 'failed']),
+  "researchError": zod.string().nullable(),
+  "lastResearchedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+export const ImportRequirementItemsResponse = zod.array(ImportRequirementItemsResponseItem)
+
+
+export const UpdateRequirementItemParams = zod.object({
+  "requirementId": zod.coerce.string().uuid()
+})
+
+export const updateRequirementItemBodyTitleMax = 300;
+
+export const updateRequirementItemBodyDescriptionMax = 8000;
+
+export const updateRequirementItemBodySourceReferenceMax = 2000;
+
+export const updateRequirementItemBodySourceQuoteMax = 4000;
+
+export const updateRequirementItemBodyQuantityExclusiveMin = 0;
+
+export const updateRequirementItemBodyEvidenceIdsMax = 100;
+
+export const updateRequirementItemBodyWebEvidenceMax = 100;
+
+
+
+export const UpdateRequirementItemBody = zod.object({
+  "title": zod.string().min(1).max(updateRequirementItemBodyTitleMax).optional(),
+  "description": zod.string().min(1).max(updateRequirementItemBodyDescriptionMax).optional(),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']).optional(),
+  "sourceReference": zod.string().max(updateRequirementItemBodySourceReferenceMax).optional(),
+  "sourceQuote": zod.string().max(updateRequirementItemBodySourceQuoteMax).optional(),
+  "quantity": zod.number().gt(updateRequirementItemBodyQuantityExclusiveMin).nullish(),
+  "unit": zod.string().nullish(),
+  "requiresVendor": zod.boolean().optional(),
+  "reviewStatus": zod.enum(['pending', 'approved']).optional(),
+  "confirmed": zod.boolean().optional(),
+  "evidenceIds": zod.array(zod.string().uuid()).max(updateRequirementItemBodyEvidenceIdsMax).optional(),
+  "webEvidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "claim": zod.string(),
+  "verified": zod.boolean()
+})).max(updateRequirementItemBodyWebEvidenceMax).optional()
+})
+
+export const updateRequirementItemResponseOneTitleMax = 300;
+
+export const updateRequirementItemResponseOneDescriptionMax = 8000;
+
+export const updateRequirementItemResponseOneSourceReferenceMax = 2000;
+
+export const updateRequirementItemResponseOneSourceQuoteMax = 4000;
+
+export const updateRequirementItemResponseOneQuantityExclusiveMin = 0;
+
+
+
+export const updateRequirementItemResponseTwoOptionsItemOnePricePkrMin = 0;
+
+
+
+export const UpdateRequirementItemResponse = zod.object({
+  "title": zod.string().min(1).max(updateRequirementItemResponseOneTitleMax),
+  "description": zod.string().min(1).max(updateRequirementItemResponseOneDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(updateRequirementItemResponseOneSourceReferenceMax),
+  "sourceQuote": zod.string().max(updateRequirementItemResponseOneSourceQuoteMax),
+  "quantity": zod.number().gt(updateRequirementItemResponseOneQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "tenderId": zod.string().uuid(),
+  "extractionId": zod.string().uuid().nullable(),
+  "reviewStatus": zod.enum(['pending', 'approved']),
+  "evidenceIds": zod.array(zod.string().uuid()),
+  "webEvidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "claim": zod.string(),
+  "verified": zod.boolean()
+})),
+  "options": zod.array(zod.object({
+  "manufacturer": zod.string(),
+  "product": zod.string().min(1),
+  "model": zod.string(),
+  "supplier": zod.string().min(1),
+  "supplierUrl": zod.string().url().nullable(),
+  "datasheetUrl": zod.string().url().nullable(),
+  "specifications": zod.array(zod.string()),
+  "matchSummary": zod.string(),
+  "gaps": zod.array(zod.string()),
+  "deliveryStatus": zod.enum(['source_states_pakistan', 'unconfirmed']),
+  "deliverySourceUrl": zod.string().url().nullable(),
+  "deliveryNotes": zod.string(),
+  "pricePkr": zod.number().min(updateRequirementItemResponseTwoOptionsItemOnePricePkrMin).nullable(),
+  "priceSourceUrl": zod.string().url().nullable(),
+  "quoteEvidenceId": zod.string().uuid().nullable(),
+  "priceType": zod.enum(['published', 'quotation', 'not_published']),
+  "taxStatus": zod.enum(['included', 'excluded', 'unknown']),
+  "priceNotes": zod.string(),
+  "sources": zod.array(zod.object({
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "quote": zod.string()
+}))
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "origin": zod.enum(['web', 'manual']),
+  "checkedAt": zod.coerce.date(),
+  "reviewed": zod.boolean()
+}))),
+  "selectedOptionId": zod.string().uuid().nullable(),
+  "researchStatus": zod.enum(['idle', 'complete', 'failed']),
+  "researchError": zod.string().nullable(),
+  "lastResearchedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+
+
+export const DeleteRequirementItemParams = zod.object({
+  "requirementId": zod.coerce.string().uuid()
+})
+
+export const DeleteRequirementItemResponse = zod.void()
+
+
+export const ResearchRequirementSuppliersParams = zod.object({
+  "requirementId": zod.coerce.string().uuid()
+})
+
+export const ResearchRequirementSuppliersBody = zod.object({
+  "aiConsent": zod.literal(true)
+})
+
+export const researchRequirementSuppliersResponseOneTitleMax = 300;
+
+export const researchRequirementSuppliersResponseOneDescriptionMax = 8000;
+
+export const researchRequirementSuppliersResponseOneSourceReferenceMax = 2000;
+
+export const researchRequirementSuppliersResponseOneSourceQuoteMax = 4000;
+
+export const researchRequirementSuppliersResponseOneQuantityExclusiveMin = 0;
+
+
+
+export const researchRequirementSuppliersResponseTwoOptionsItemOnePricePkrMin = 0;
+
+
+
+export const ResearchRequirementSuppliersResponse = zod.object({
+  "title": zod.string().min(1).max(researchRequirementSuppliersResponseOneTitleMax),
+  "description": zod.string().min(1).max(researchRequirementSuppliersResponseOneDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(researchRequirementSuppliersResponseOneSourceReferenceMax),
+  "sourceQuote": zod.string().max(researchRequirementSuppliersResponseOneSourceQuoteMax),
+  "quantity": zod.number().gt(researchRequirementSuppliersResponseOneQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "tenderId": zod.string().uuid(),
+  "extractionId": zod.string().uuid().nullable(),
+  "reviewStatus": zod.enum(['pending', 'approved']),
+  "evidenceIds": zod.array(zod.string().uuid()),
+  "webEvidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "claim": zod.string(),
+  "verified": zod.boolean()
+})),
+  "options": zod.array(zod.object({
+  "manufacturer": zod.string(),
+  "product": zod.string().min(1),
+  "model": zod.string(),
+  "supplier": zod.string().min(1),
+  "supplierUrl": zod.string().url().nullable(),
+  "datasheetUrl": zod.string().url().nullable(),
+  "specifications": zod.array(zod.string()),
+  "matchSummary": zod.string(),
+  "gaps": zod.array(zod.string()),
+  "deliveryStatus": zod.enum(['source_states_pakistan', 'unconfirmed']),
+  "deliverySourceUrl": zod.string().url().nullable(),
+  "deliveryNotes": zod.string(),
+  "pricePkr": zod.number().min(researchRequirementSuppliersResponseTwoOptionsItemOnePricePkrMin).nullable(),
+  "priceSourceUrl": zod.string().url().nullable(),
+  "quoteEvidenceId": zod.string().uuid().nullable(),
+  "priceType": zod.enum(['published', 'quotation', 'not_published']),
+  "taxStatus": zod.enum(['included', 'excluded', 'unknown']),
+  "priceNotes": zod.string(),
+  "sources": zod.array(zod.object({
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "quote": zod.string()
+}))
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "origin": zod.enum(['web', 'manual']),
+  "checkedAt": zod.coerce.date(),
+  "reviewed": zod.boolean()
+}))),
+  "selectedOptionId": zod.string().uuid().nullable(),
+  "researchStatus": zod.enum(['idle', 'complete', 'failed']),
+  "researchError": zod.string().nullable(),
+  "lastResearchedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+
+
+export const AddRequirementSupplierOptionParams = zod.object({
+  "requirementId": zod.coerce.string().uuid()
+})
+
+
+
+export const addRequirementSupplierOptionBodyPricePkrMin = 0;
+
+
+
+export const AddRequirementSupplierOptionBody = zod.object({
+  "manufacturer": zod.string(),
+  "product": zod.string().min(1),
+  "model": zod.string(),
+  "supplier": zod.string().min(1),
+  "supplierUrl": zod.string().url().nullable(),
+  "datasheetUrl": zod.string().url().nullable(),
+  "specifications": zod.array(zod.string()),
+  "matchSummary": zod.string(),
+  "gaps": zod.array(zod.string()),
+  "deliveryStatus": zod.enum(['source_states_pakistan', 'unconfirmed']),
+  "deliverySourceUrl": zod.string().url().nullable(),
+  "deliveryNotes": zod.string(),
+  "pricePkr": zod.number().min(addRequirementSupplierOptionBodyPricePkrMin).nullable(),
+  "priceSourceUrl": zod.string().url().nullable(),
+  "quoteEvidenceId": zod.string().uuid().nullable(),
+  "priceType": zod.enum(['published', 'quotation', 'not_published']),
+  "taxStatus": zod.enum(['included', 'excluded', 'unknown']),
+  "priceNotes": zod.string(),
+  "sources": zod.array(zod.object({
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "quote": zod.string()
+}))
+})
+
+export const addRequirementSupplierOptionResponseOneTitleMax = 300;
+
+export const addRequirementSupplierOptionResponseOneDescriptionMax = 8000;
+
+export const addRequirementSupplierOptionResponseOneSourceReferenceMax = 2000;
+
+export const addRequirementSupplierOptionResponseOneSourceQuoteMax = 4000;
+
+export const addRequirementSupplierOptionResponseOneQuantityExclusiveMin = 0;
+
+
+
+export const addRequirementSupplierOptionResponseTwoOptionsItemOnePricePkrMin = 0;
+
+
+
+export const AddRequirementSupplierOptionResponse = zod.object({
+  "title": zod.string().min(1).max(addRequirementSupplierOptionResponseOneTitleMax),
+  "description": zod.string().min(1).max(addRequirementSupplierOptionResponseOneDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(addRequirementSupplierOptionResponseOneSourceReferenceMax),
+  "sourceQuote": zod.string().max(addRequirementSupplierOptionResponseOneSourceQuoteMax),
+  "quantity": zod.number().gt(addRequirementSupplierOptionResponseOneQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "tenderId": zod.string().uuid(),
+  "extractionId": zod.string().uuid().nullable(),
+  "reviewStatus": zod.enum(['pending', 'approved']),
+  "evidenceIds": zod.array(zod.string().uuid()),
+  "webEvidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "claim": zod.string(),
+  "verified": zod.boolean()
+})),
+  "options": zod.array(zod.object({
+  "manufacturer": zod.string(),
+  "product": zod.string().min(1),
+  "model": zod.string(),
+  "supplier": zod.string().min(1),
+  "supplierUrl": zod.string().url().nullable(),
+  "datasheetUrl": zod.string().url().nullable(),
+  "specifications": zod.array(zod.string()),
+  "matchSummary": zod.string(),
+  "gaps": zod.array(zod.string()),
+  "deliveryStatus": zod.enum(['source_states_pakistan', 'unconfirmed']),
+  "deliverySourceUrl": zod.string().url().nullable(),
+  "deliveryNotes": zod.string(),
+  "pricePkr": zod.number().min(addRequirementSupplierOptionResponseTwoOptionsItemOnePricePkrMin).nullable(),
+  "priceSourceUrl": zod.string().url().nullable(),
+  "quoteEvidenceId": zod.string().uuid().nullable(),
+  "priceType": zod.enum(['published', 'quotation', 'not_published']),
+  "taxStatus": zod.enum(['included', 'excluded', 'unknown']),
+  "priceNotes": zod.string(),
+  "sources": zod.array(zod.object({
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "quote": zod.string()
+}))
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "origin": zod.enum(['web', 'manual']),
+  "checkedAt": zod.coerce.date(),
+  "reviewed": zod.boolean()
+}))),
+  "selectedOptionId": zod.string().uuid().nullable(),
+  "researchStatus": zod.enum(['idle', 'complete', 'failed']),
+  "researchError": zod.string().nullable(),
+  "lastResearchedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+
+
+export const SelectRequirementSupplierParams = zod.object({
+  "requirementId": zod.coerce.string().uuid()
+})
+
+export const SelectRequirementSupplierBody = zod.object({
+  "optionId": zod.string().uuid().nullable(),
+  "confirmed": zod.literal(true)
+})
+
+export const selectRequirementSupplierResponseOneTitleMax = 300;
+
+export const selectRequirementSupplierResponseOneDescriptionMax = 8000;
+
+export const selectRequirementSupplierResponseOneSourceReferenceMax = 2000;
+
+export const selectRequirementSupplierResponseOneSourceQuoteMax = 4000;
+
+export const selectRequirementSupplierResponseOneQuantityExclusiveMin = 0;
+
+
+
+export const selectRequirementSupplierResponseTwoOptionsItemOnePricePkrMin = 0;
+
+
+
+export const SelectRequirementSupplierResponse = zod.object({
+  "title": zod.string().min(1).max(selectRequirementSupplierResponseOneTitleMax),
+  "description": zod.string().min(1).max(selectRequirementSupplierResponseOneDescriptionMax),
+  "category": zod.enum(['technical', 'eligibility', 'commercial', 'submission', 'delivery', 'services', 'other']),
+  "sourceReference": zod.string().max(selectRequirementSupplierResponseOneSourceReferenceMax),
+  "sourceQuote": zod.string().max(selectRequirementSupplierResponseOneSourceQuoteMax),
+  "quantity": zod.number().gt(selectRequirementSupplierResponseOneQuantityExclusiveMin).nullable(),
+  "unit": zod.string().nullable(),
+  "requiresVendor": zod.boolean()
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "tenderId": zod.string().uuid(),
+  "extractionId": zod.string().uuid().nullable(),
+  "reviewStatus": zod.enum(['pending', 'approved']),
+  "evidenceIds": zod.array(zod.string().uuid()),
+  "webEvidence": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "claim": zod.string(),
+  "verified": zod.boolean()
+})),
+  "options": zod.array(zod.object({
+  "manufacturer": zod.string(),
+  "product": zod.string().min(1),
+  "model": zod.string(),
+  "supplier": zod.string().min(1),
+  "supplierUrl": zod.string().url().nullable(),
+  "datasheetUrl": zod.string().url().nullable(),
+  "specifications": zod.array(zod.string()),
+  "matchSummary": zod.string(),
+  "gaps": zod.array(zod.string()),
+  "deliveryStatus": zod.enum(['source_states_pakistan', 'unconfirmed']),
+  "deliverySourceUrl": zod.string().url().nullable(),
+  "deliveryNotes": zod.string(),
+  "pricePkr": zod.number().min(selectRequirementSupplierResponseTwoOptionsItemOnePricePkrMin).nullable(),
+  "priceSourceUrl": zod.string().url().nullable(),
+  "quoteEvidenceId": zod.string().uuid().nullable(),
+  "priceType": zod.enum(['published', 'quotation', 'not_published']),
+  "taxStatus": zod.enum(['included', 'excluded', 'unknown']),
+  "priceNotes": zod.string(),
+  "sources": zod.array(zod.object({
+  "url": zod.string().url(),
+  "title": zod.string(),
+  "quote": zod.string()
+}))
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "origin": zod.enum(['web', 'manual']),
+  "checkedAt": zod.coerce.date(),
+  "reviewed": zod.boolean()
+}))),
+  "selectedOptionId": zod.string().uuid().nullable(),
+  "researchStatus": zod.enum(['idle', 'complete', 'failed']),
+  "researchError": zod.string().nullable(),
+  "lastResearchedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+
+
 /**
  * @summary List evidence attached to a tender
  */
 export const ListTenderEvidenceParams = zod.object({
   "tenderId": zod.coerce.string().uuid()
 })
+
+
+
+
+
 
 
 export const ListTenderEvidenceResponseItem = zod.object({
@@ -353,6 +1180,11 @@ export const AddTenderEvidenceParams = zod.object({
 })
 
 
+
+
+
+
+
 export const AddTenderEvidenceBody = zod.object({
   "name": zod.string().min(1),
   "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
@@ -361,6 +1193,11 @@ export const AddTenderEvidenceBody = zod.object({
   "size": zod.number().int().min(1),
   "notes": zod.string().optional()
 })
+
+
+
+
+
 
 
 export const AddTenderEvidenceResponse = zod.object({
@@ -394,6 +1231,10 @@ export const ListVendorSourcesParams = zod.object({
 })
 
 
+
+
+
+
 export const ListVendorSourcesResponseItem = zod.object({
   "manufacturer": zod.string().min(1),
   "product": zod.string().min(1),
@@ -417,6 +1258,10 @@ export const AddVendorSourceParams = zod.object({
 })
 
 
+
+
+
+
 export const AddVendorSourceBody = zod.object({
   "manufacturer": zod.string().min(1),
   "product": zod.string().min(1),
@@ -424,6 +1269,10 @@ export const AddVendorSourceBody = zod.object({
   "sourceUrl": zod.string().url(),
   "sourceTitle": zod.string().optional()
 })
+
+
+
+
 
 
 export const AddVendorSourceResponse = zod.object({
@@ -449,6 +1298,9 @@ export const ResearchVendorSourceParams = zod.object({
 })
 
 
+
+
+
 export const ResearchVendorSourceBody = zod.object({
   "manufacturer": zod.string().min(1),
   "product": zod.string().min(1),
@@ -470,6 +1322,10 @@ export const ReviewVendorSourceParams = zod.object({
 })
 
 
+
+
+
+
 export const ReviewVendorSourceBody = zod.object({
   "manufacturer": zod.string().min(1).optional(),
   "product": zod.string().min(1).optional(),
@@ -478,6 +1334,10 @@ export const ReviewVendorSourceBody = zod.object({
   "sourceTitle": zod.string().optional(),
   "reviewStatus": zod.enum(['pending', 'approved', 'rejected']).optional()
 })
+
+
+
+
 
 
 export const ReviewVendorSourceResponse = zod.object({
@@ -523,6 +1383,7 @@ export const GenerateProposalPairParams = zod.object({
 })
 
 export const generateProposalPairBodyLibraryEntryIdsMax = 5;
+
 
 
 export const GenerateProposalPairBody = zod.object({
@@ -581,6 +1442,8 @@ export const UpdateProposalParams = zod.object({
 })
 
 
+
+
 export const UpdateProposalBody = zod.object({
   "title": zod.string().min(1).optional(),
   "content": zod.string().optional(),
@@ -603,6 +1466,7 @@ export const UpdateProposalResponse = zod.object({
  * @summary Search the signed-in user's past tender-proposal pairs
  */
 export const listProposalLibraryQueryQMax = 200;
+
 
 
 export const ListProposalLibraryQueryParams = zod.object({
@@ -645,6 +1509,7 @@ export const createLibraryEntryBodyAgencyMax = 300;
 export const createLibraryEntryBodyVersionLabelMax = 100;
 
 export const createLibraryEntryBodyNotesMax = 20000;
+
 
 
 export const CreateLibraryEntryBody = zod.object({
@@ -732,6 +1597,7 @@ export const updateLibraryEntryBodyVersionLabelMax = 100;
 export const updateLibraryEntryBodyNotesMax = 20000;
 
 
+
 export const UpdateLibraryEntryBody = zod.object({
   "title": zod.string().min(1).max(updateLibraryEntryBodyTitleMax).optional(),
   "tenderTitle": zod.string().max(updateLibraryEntryBodyTenderTitleMax).optional(),
@@ -781,6 +1647,9 @@ export const DeleteLibraryEntryResponse = zod.void()
  */
 
 
+
+
+
 export const RequestUploadUrlBody = zod.object({
   "name": zod.string().min(1),
   "size": zod.number().int().min(1),
@@ -796,6 +1665,7 @@ export const RequestUploadUrlResponse = zod.object({
 /**
  * @summary Read separate source text and local OCR review state
  */
+
 
 
 export const GetDocumentExtractionQueryParams = zod.object({
@@ -854,6 +1724,7 @@ export const ExtractUploadedDocumentResponse = zod.object({
 export const reviewDocumentExtractionBodyReviewedTextMax = 500000;
 
 
+
 export const ReviewDocumentExtractionBody = zod.object({
   "objectPath": zod.string().min(1),
   "status": zod.enum(['verified', 'rejected']),
@@ -876,4 +1747,5 @@ export const ReviewDocumentExtractionResponse = zod.object({
   "confidence": zod.number().nullable()
 }))
 })
+
 
