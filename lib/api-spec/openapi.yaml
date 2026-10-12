@@ -348,6 +348,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
   /proposals/{proposalId}:
+    get:
+      operationId: getProposal
+      tags: [proposals]
+      summary: Load a saved proposal draft
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Saved proposal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
     patch:
       operationId: updateProposal
       tags: [proposals]

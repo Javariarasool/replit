@@ -4,8 +4,8 @@ import {
   RequestUploadUrlResponse,
 } from '@workspace/api-zod';
 import { Router, type IRouter, type Request, type Response } from 'express';
-
-import { ObjectPermission } from '../lib/objectAcl';
+import { db, uploadsTable } from '@workspace/db';
+import { and, eq } from 'drizzle-orm';
 import {
   ObjectNotFoundError,
   ObjectStorageService,
@@ -52,10 +52,15 @@ router.post(
 
     try {
       const { name, size, contentType } = parsed.data;
+      if (size > 25 * 1024 * 1024) {
+        res.status(400).json({ error: 'Documents must be 25 MB or smaller.' });
+        return;
+      }
 
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
       const objectPath =
         objectStorageService.normalizeObjectEntityPath(uploadURL);
+      await db.insert(uploadsTable).values({ objectPath, ownerId: req.user!.id, name, size, contentType });
 
       res.json(
         RequestUploadUrlResponse.parse({
@@ -119,26 +124,22 @@ router.get(
  */
 router.get('/storage/objects/*path', async (req: Request, res: Response) => {
   try {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join('/') : raw;
     const objectPath = `/objects/${wildcardPath}`;
+    const [upload] = await db.select().from(uploadsTable).where(and(
+      eq(uploadsTable.objectPath, objectPath), eq(uploadsTable.ownerId, req.user.id),
+    ));
+    if (!upload) {
+      res.status(404).json({ error: 'Object not found' });
+      return;
+    }
     const objectFile =
       await objectStorageService.getObjectEntityFile(objectPath);
-
-    // --- Protected route example (uncomment when using replit-auth) ---
-    // if (!req.isAuthenticated()) {
-    //   res.status(401).json({ error: "Unauthorized" });
-    //   return;
-    // }
-    // const canAccess = await objectStorageService.canAccessObjectEntity({
-    //   userId: req.user.id,
-    //   objectFile,
-    //   requestedPermission: ObjectPermission.READ,
-    // });
-    // if (!canAccess) {
-    //   res.status(403).json({ error: "Forbidden" });
-    //   return;
-    // }
 
     const response = await objectStorageService.downloadObject(objectFile);
 

@@ -1706,6 +1706,83 @@ export const useGenerateProposalPair = <TError = ErrorType<ErrorEnvelope>,
       return useMutation(getGenerateProposalPairMutationOptions(options));
     }
 
+export const getGetProposalUrl = (proposalId: string,) => {
+
+
+
+
+  return `/api/proposals/${proposalId}`
+}
+
+/**
+ * @summary Load a saved proposal draft
+ */
+export const getProposal = async (proposalId: string, options?: Parameters<typeof customFetch>[1]): Promise<Proposal> => {
+
+  return customFetch<Proposal>(getGetProposalUrl(proposalId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProposalQueryKey = (proposalId: string,) => {
+    return [
+    `/api/proposals/${proposalId}`
+    ] as const;
+    }
+
+
+export const getGetProposalQueryOptions = <TData = Awaited<ReturnType<typeof getProposal>>, TError = ErrorType<unknown>>(proposalId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProposal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProposalQueryKey(proposalId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProposal>>> = ({ signal }) => getProposal(proposalId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: proposalId !== null && proposalId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProposal>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProposalQueryResult = NonNullable<Awaited<ReturnType<typeof getProposal>>>
+export type GetProposalQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Load a saved proposal draft
+ */
+
+export function useGetProposal<TData = Awaited<ReturnType<typeof getProposal>>, TError = ErrorType<unknown>>(
+ proposalId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProposal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProposalQueryOptions(proposalId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getUpdateProposalUrl = (proposalId: string,) => {
 
 

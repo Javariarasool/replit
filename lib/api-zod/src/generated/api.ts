@@ -504,6 +504,25 @@ export const GenerateProposalPairResponse = zod.object({
 
 
 /**
+ * @summary Load a saved proposal draft
+ */
+export const GetProposalParams = zod.object({
+  "proposalId": zod.coerce.string().uuid()
+})
+
+export const GetProposalResponse = zod.object({
+  "id": zod.string().uuid(),
+  "tenderId": zod.string().uuid(),
+  "kind": zod.enum(['technical', 'commercial']),
+  "title": zod.string(),
+  "content": zod.string(),
+  "status": zod.enum(['draft', 'needs_review', 'approved']),
+  "version": zod.number().int(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Edit a proposal draft or mark it reviewed
  */
 export const UpdateProposalParams = zod.object({

@@ -78,9 +78,7 @@ export const vendorSourcesTable = pgTable("vendor_sources", {
     .defaultNow(),
 });
 
-export const proposalsTable = pgTable(
-  "proposals",
-  {
+export const proposalsTable = pgTable("proposals", {
     id: uuid("id").defaultRandom().primaryKey(),
     tenderId: uuid("tender_id")
       .notNull()
@@ -97,11 +95,7 @@ export const proposalsTable = pgTable(
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
-  },
-  (table) => [
-    uniqueIndex("proposal_tender_kind_idx").on(table.tenderId, table.kind),
-  ],
-);
+});
 
 export const tendersRelations = relations(tendersTable, ({ many }) => ({
   evidence: many(evidenceTable),

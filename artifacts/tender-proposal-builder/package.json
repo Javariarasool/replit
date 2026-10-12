@@ -74,5 +74,9 @@
     "vite": "catalog:",
     "wouter": "^3.3.5",
     "zod": "catalog:"
+  },
+  "dependencies": {
+    "docx": "^9.10.0",
+    "jspdf": "^4.2.1"
   }
 }
