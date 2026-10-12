@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Evidence, Tender } from '@workspace/api-client-react';
 import { Check, ClipboardList, LoaderCircle, Sparkles } from 'lucide-react';
 import { Button, Dialog, Field, Pill, cn, inputClass } from './ui-kit';
+import { DocumentReview } from './document-review';
 
 interface Props {
   tender: Tender;
@@ -30,6 +31,7 @@ export function RequirementsPanel({ tender, files, saving, extracting, error, on
   const rfpFiles = files.filter(f => f.category === 'tender_rfp');
   const changed = !!extraction && JSON.stringify(rfpFiles.map(f => f.id).sort()) !== JSON.stringify(extraction.sourceFiles.map(f => f.id).sort());
   const pending = !!extraction && !extraction.reviewedAt;
+  const waitingForOcr = /Verify the OCR/i.test(error);
   const useExtraction = () => {
     if (!extraction) return;
     if ((requirements.trim() || summary.trim()) && !window.confirm('Load the extracted brief into the editor? This replaces the text currently in these fields. Your saved brief stays unchanged until you save.')) return;
@@ -45,8 +47,17 @@ export function RequirementsPanel({ tender, files, saving, extracting, error, on
         <Button onClick={() => setConsentOpen(true)} disabled={extracting || saving || !rfpFiles.length} data-testid="button-extract-requirements"><Sparkles size={15}/>{extraction ? 'Extract again' : 'Extract from tender'}</Button></div>
     </div>
     {extracting && <div role="status" className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm"><LoaderCircle size={18} className="animate-spin"/>Reading tender documents and extracting requirements. Your saved brief will not be overwritten.</div>}
-    {error && <p role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">{error}</p>}
+    {error && <div role={waitingForOcr ? 'status' : 'alert'} className={cn('rounded-xl border p-4 text-sm', waitingForOcr ? 'border-amber-900/20 bg-amber-900/5 text-amber-950' : 'border-destructive/20 bg-destructive/5 text-destructive')}>
+      {waitingForOcr && <p className="mb-2 font-bold">OCR verification required—not a failed upload</p>}
+      <p>{error}</p>
+      {waitingForOcr && <p className="mt-2">Review and verify the OCR for each scanned source below, then choose Extract from tender. Unverified OCR is not sent to the requirements AI.</p>}
+    </div>}
     {!rfpFiles.length && <p className="text-sm text-muted-foreground">Upload a Tender / RFP document to begin. Manual entry remains available below.</p>}
+    {!!rfpFiles.length && <details open={!!error} className="rounded-xl border border-border bg-card p-4" data-testid="panel-tender-source-reading">
+      <summary className="cursor-pointer text-sm font-bold">Source documents & OCR review ({rfpFiles.length})</summary>
+      <p className="mt-3 text-xs text-muted-foreground">Readable documents are extracted automatically. Scanned documents require checking the recognised text against the original before requirements can be extracted.</p>
+      <div className="mt-3 space-y-4">{rfpFiles.map(file => <div key={file.id} className="rounded-lg border border-border p-3"><p className="break-words text-sm font-semibold">{file.name}</p><DocumentReview path={file.objectPath}/></div>)}</div>
+    </details>}
     {extraction && <div className="rounded-xl border border-primary/20 bg-card p-5" data-testid="panel-extracted-requirements">
       <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold">Automatically extracted brief</h3><Pill tone={pending || changed ? 'amber' : 'blue'}>{changed ? 'Documents changed · extract again' : pending ? 'Human review required' : 'Reviewed'}</Pill></div>
       <p className="mt-2 text-xs text-muted-foreground">Sources: {extraction.sourceFiles.map(f => f.name).join(', ')}. Check quantities, mandatory clauses, dates, forms and source references against the originals.</p>

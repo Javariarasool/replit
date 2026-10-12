@@ -69,7 +69,12 @@ export async function extractWithOcr(buffer: Buffer, contentType: string, name: 
         await exec("pdftoppm", ["-f", String(page), "-l", String(page), "-singlefile", "-scale-to", "2400", "-png", input, prefix], { timeout: 30000, maxBuffer: 1024 * 1024 });
         imagePath = `${prefix}.png`;
       }
-      const { stdout } = await exec("tesseract", [imagePath, "stdout", "-l", "eng", "tsv"], { timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
+      // Bound native parallelism: the service already permits concurrent OCR
+      // jobs, and OpenMP contention can make a small scan exceed its deadline.
+      const { stdout } = await exec("tesseract", [imagePath, "stdout", "-l", "eng", "tsv"], {
+        timeout: 60000, maxBuffer: 8 * 1024 * 1024,
+        env: { ...process.env, OMP_THREAD_LIMIT: "1" },
+      });
       const recognized = parseTsv(stdout);
       result.pages.push({ page, ...recognized });
     }
@@ -82,7 +87,9 @@ export async function extractWithOcr(buffer: Buffer, contentType: string, name: 
     if (result.pages.some(page => !page.text.trim())) result.error = "Some pages have no recognized text. Check every page of the original before verifying.";
   } catch (error) {
     result.status = "failed";
-    result.error = error instanceof Error ? error.message : "Local OCR failed.";
+    result.error = error instanceof Error && "killed" in error && error.killed === true
+      ? "Local OCR exceeded its processing time limit. Retry reading this document; your original remains saved and no unverified OCR text was used."
+      : error instanceof Error ? error.message : "Local OCR failed.";
     if (result.sourceText.length > MAX_SOURCE_TEXT) result.sourceText = "";
     if (result.ocrText.length > MAX_TEXT) { result.ocrText = ""; result.pages = []; }
   } finally {

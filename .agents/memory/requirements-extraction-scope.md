@@ -26,3 +26,9 @@ For long tenders, completeness takes priority over automatic deduplication.
 **Why:** Similar clauses can contain different quantities or amendments; merging them automatically risks dropping important conditions.
 
 **How to apply:** Process every source section with boundary overlap and keep source references. Retain repetitions with an explicit human-review warning rather than silently sampling or truncating the tender.
+
+The user wants requirements separated individually, with evidence attached to each requirement through uploads or web research. They want automatic OEM datasheet searches, vendor and product options with prices, and a human choice of vendor for proposal building.
+
+**Why:** The user asked for requirement-by-requirement evidence and purchasing decisions rather than a single extracted text brief.
+
+**How to apply:** Preserve clause-level source references and evidence links. Product/vendor comparisons and human selections must belong to the relevant requirement, not just the tender as a whole.

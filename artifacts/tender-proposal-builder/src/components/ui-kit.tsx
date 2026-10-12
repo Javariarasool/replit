@@ -3,7 +3,13 @@ import { CircleAlert, FolderOpen, RotateCcw, X } from 'lucide-react';
 
 export const cn = (...values: Array<string | false | undefined>) => values.filter(Boolean).join(' ');
 export const formatDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set';
-export const errorText = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+export const errorText = (error: unknown) => {
+  if (error && typeof error === 'object' && 'data' in error) {
+    const data = error.data;
+    if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') return data.error;
+  }
+  return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+};
 export function Button({ children, variant = 'primary', className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'quiet' | 'danger' }) {
   const looks = { primary: 'bg-primary text-primary-foreground hover:brightness-105 shadow-sm', secondary: 'bg-card border border-border text-foreground hover:bg-secondary', quiet: 'text-muted-foreground hover:bg-secondary hover:text-foreground', danger: 'text-destructive hover:bg-destructive/10' };
   return <button {...props} className={cn('inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', looks[variant], className)}>{children}</button>;

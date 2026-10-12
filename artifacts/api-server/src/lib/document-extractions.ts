@@ -28,8 +28,12 @@ export async function ensureExtraction(objectPath: string, ownerId: string, retr
   try { return await work; } finally { active.delete(key); }
 }
 
+export class OcrReviewRequiredError extends Error {
+  override name = "OcrReviewRequiredError";
+}
+
 export function draftingText(extraction: DocumentExtraction, name: string): string {
-  if (extraction.status === "needs_review") throw new Error(`Verify the OCR for "${name}" against its original before drafting.`);
+  if (extraction.status === "needs_review" || extraction.status === "rejected") throw new OcrReviewRequiredError(`Verify the OCR for "${name}" against its original before extracting requirements or drafting a proposal.`);
   if (extraction.status === "failed") throw new Error(`Extraction failed for "${name}": ${extraction.error}`);
   return [extraction.sourceText, extraction.status === "verified" ? `HUMAN-VERIFIED OCR:\n${extraction.reviewedText}` : ""].filter(Boolean).join("\n\n");
 }

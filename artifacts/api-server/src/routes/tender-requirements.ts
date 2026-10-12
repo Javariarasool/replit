@@ -4,6 +4,7 @@ import { db, evidenceTable, tendersTable } from "@workspace/db";
 import { ExtractTenderRequirementsBody, ExtractTenderRequirementsParams, ExtractTenderRequirementsResponse } from "@workspace/api-zod";
 import { requireAuth, ownedTender, tenderView } from "../lib/tender-data";
 import { extractTenderRequirements, requirementsInFlight, sameTenderSources } from "../lib/tender-requirements";
+import { OcrReviewRequiredError } from "../lib/document-extractions";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -31,7 +32,7 @@ router.post("/tenders/:tenderId/requirements/extract", async (req, res): Promise
     res.json(ExtractTenderRequirementsResponse.parse(await tenderView(updated)));
   } catch (error) {
     req.log.warn({ errorName: error instanceof Error ? error.name : "Error" }, "Tender requirement extraction failed");
-    res.status(400).json({ error: error instanceof Error ? error.message : "Requirements extraction failed. Your uploaded documents and working brief remain unchanged." });
+    res.status(error instanceof OcrReviewRequiredError ? 409 : 400).json({ error: error instanceof Error ? error.message : "Requirements extraction failed. Your uploaded documents and working brief remain unchanged." });
   } finally { requirementsInFlight.delete(owner); }
 });
 export default router;
