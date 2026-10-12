@@ -10,6 +10,16 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Browser authentication.
+  - name: tenders
+    description: Pakistan government IT tender workspaces.
+  - name: evidence
+    description: Tender evidence and OEM source records.
+  - name: proposals
+    description: Separate technical and commercial proposal drafts.
+  - name: storage
+    description: Secure document upload endpoints.
 paths:
   /healthz:
     get:
@@ -24,7 +34,367 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/user:
+    get:
+      operationId: getCurrentAuthUser
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current authentication state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUserEnvelope"
+  /login:
+    get:
+      operationId: beginBrowserLogin
+      tags: [auth]
+      summary: Start browser login
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "302":
+          description: Redirects to the identity provider.
+  /callback:
+    get:
+      operationId: handleBrowserLoginCallback
+      tags: [auth]
+      summary: Complete browser login
+      responses:
+        "302":
+          description: Redirects to the app after login.
+  /logout:
+    get:
+      operationId: logoutBrowserSession
+      tags: [auth]
+      summary: Sign out the current browser session
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "302":
+          description: Clears the session and redirects.
+  /dashboard:
+    get:
+      operationId: getDashboardSummary
+      tags: [tenders]
+      summary: Get dashboard totals and recent tender work
+      responses:
+        "200":
+          description: Dashboard summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /tenders:
+    get:
+      operationId: listTenders
+      tags: [tenders]
+      summary: List the user's tenders
+      responses:
+        "200":
+          description: Tender list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tender"
+    post:
+      operationId: createTender
+      tags: [tenders]
+      summary: Create a tender workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenderInput"
+      responses:
+        "201":
+          description: Created tender.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tender"
+  /tenders/{tenderId}:
+    get:
+      operationId: getTender
+      tags: [tenders]
+      summary: Get a tender and its workspace counts
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      responses:
+        "200":
+          description: Tender workspace details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenderDetail"
+        "404":
+          description: Tender not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    patch:
+      operationId: updateTender
+      tags: [tenders]
+      summary: Update tender details
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenderUpdate"
+      responses:
+        "200":
+          description: Updated tender.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tender"
+    delete:
+      operationId: deleteTender
+      tags: [tenders]
+      summary: Delete a tender workspace and its metadata
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      responses:
+        "204":
+          description: Deleted.
+  /tenders/{tenderId}/evidence:
+    get:
+      operationId: listTenderEvidence
+      tags: [evidence]
+      summary: List evidence attached to a tender
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      responses:
+        "200":
+          description: Evidence list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Evidence"
+    post:
+      operationId: addTenderEvidence
+      tags: [evidence]
+      summary: Attach uploaded evidence and its human-provided notes
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceInput"
+      responses:
+        "201":
+          description: Attached evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evidence"
+  /evidence/{evidenceId}:
+    delete:
+      operationId: deleteEvidence
+      tags: [evidence]
+      summary: Remove evidence metadata from a tender
+      parameters:
+        - name: evidenceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Deleted.
+  /tenders/{tenderId}/vendor-sources:
+    get:
+      operationId: listVendorSources
+      tags: [evidence]
+      summary: List OEM source claims and their review state
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      responses:
+        "200":
+          description: OEM source list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VendorSource"
+    post:
+      operationId: addVendorSource
+      tags: [evidence]
+      summary: Add an OEM claim and its official source URL
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorSourceInput"
+      responses:
+        "201":
+          description: Added source claim, awaiting review.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorSource"
+  /tenders/{tenderId}/vendor-sources/research:
+    post:
+      operationId: researchVendorSource
+      tags: [evidence]
+      summary: Extract candidate product facts from a public OEM page
+      description: User-provided page content is untrusted; extracted claims remain unverified until human review.
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorResearchInput"
+      responses:
+        "200":
+          description: Candidate claims extracted from the selected source page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorResearchResult"
+        "400":
+          description: Invalid or unsupported source URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /vendor-sources/{sourceId}:
+    patch:
+      operationId: reviewVendorSource
+      tags: [evidence]
+      summary: Edit or review an OEM claim
+      parameters:
+        - name: sourceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorSourceUpdate"
+      responses:
+        "200":
+          description: Updated source claim.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorSource"
+  /tenders/{tenderId}/proposals:
+    get:
+      operationId: listProposals
+      tags: [proposals]
+      summary: List technical and commercial drafts for a tender
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      responses:
+        "200":
+          description: Proposal drafts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Proposal"
+  /tenders/{tenderId}/proposals/generate:
+    post:
+      operationId: generateProposalPair
+      tags: [proposals]
+      summary: Draft separate technical and commercial proposals
+      description: Requires explicit confirmation that selected content may be processed by AI.
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateProposalInput"
+      responses:
+        "201":
+          description: Technical and commercial drafts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalPair"
+        "400":
+          description: AI processing consent is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /proposals/{proposalId}:
+    patch:
+      operationId: updateProposal
+      tags: [proposals]
+      summary: Edit a proposal draft or mark it reviewed
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalUpdate"
+      responses:
+        "200":
+          description: Updated proposal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a private file upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Upload URL and storage path.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
 components:
+  parameters:
+    TenderId:
+      name: tenderId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +403,184 @@ components:
           type: string
       required:
         - status
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl]
+      properties:
+        id: { type: string }
+        email: { type: [string, "null"], format: email }
+        firstName: { type: [string, "null"] }
+        lastName: { type: [string, "null"] }
+        profileImageUrl: { type: [string, "null"], format: uri }
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/AuthUser"
+            - type: "null"
+    TenderInput:
+      type: object
+      required: [title, agency]
+      properties:
+        title: { type: string, minLength: 1 }
+        agency: { type: string, minLength: 1 }
+        referenceNumber: { type: [string, "null"] }
+        category: { type: string, enum: [hardware, networking, software, services, mixed] }
+        closingDate: { type: [string, "null"], format: date }
+        summary: { type: string }
+        requirements: { type: string }
+    TenderUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        agency: { type: string, minLength: 1 }
+        referenceNumber: { type: [string, "null"] }
+        category: { type: string, enum: [hardware, networking, software, services, mixed] }
+        closingDate: { type: [string, "null"], format: date }
+        summary: { type: string }
+        requirements: { type: string }
+        status: { type: string, enum: [draft, in_progress, ready_for_review, submitted] }
+    Tender:
+      allOf:
+        - $ref: "#/components/schemas/TenderInput"
+        - type: object
+          required: [id, status, evidenceCount, proposalCount, createdAt, updatedAt]
+          properties:
+            id: { type: string, format: uuid }
+            status: { type: string, enum: [draft, in_progress, ready_for_review, submitted] }
+            evidenceCount: { type: integer }
+            proposalCount: { type: integer }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    TenderDetail:
+      allOf:
+        - $ref: "#/components/schemas/Tender"
+        - type: object
+          required: [sourceCount, pendingReviewCount]
+          properties:
+            sourceCount: { type: integer }
+            pendingReviewCount: { type: integer }
+    DashboardSummary:
+      type: object
+      required: [activeTenders, awaitingReview, completedProposals, recentTenders]
+      properties:
+        activeTenders: { type: integer }
+        awaitingReview: { type: integer }
+        completedProposals: { type: integer }
+        recentTenders:
+          type: array
+          items: { $ref: "#/components/schemas/Tender" }
+    EvidenceInput:
+      type: object
+      required: [name, category, objectPath, contentType, size]
+      properties:
+        name: { type: string, minLength: 1 }
+        category:
+          type: string
+          enum: [tender_rfp, previous_proposal, company_profile, certification, cv_reference, technical_bom, vendor_quote, oem_datasheet, other]
+        objectPath: { type: string, minLength: 1 }
+        contentType: { type: string, minLength: 1 }
+        size: { type: integer, minimum: 1 }
+        notes: { type: string }
+    Evidence:
+      allOf:
+        - $ref: "#/components/schemas/EvidenceInput"
+        - type: object
+          required: [id, uploadedAt]
+          properties:
+            id: { type: string, format: uuid }
+            uploadedAt: { type: string, format: date-time }
+    VendorSourceInput:
+      type: object
+      required: [manufacturer, product, claim, sourceUrl]
+      properties:
+        manufacturer: { type: string, minLength: 1 }
+        product: { type: string, minLength: 1 }
+        claim: { type: string, minLength: 1 }
+        sourceUrl: { type: string, format: uri }
+        sourceTitle: { type: string }
+    VendorSourceUpdate:
+      type: object
+      properties:
+        manufacturer: { type: string, minLength: 1 }
+        product: { type: string, minLength: 1 }
+        claim: { type: string, minLength: 1 }
+        sourceUrl: { type: string, format: uri }
+        sourceTitle: { type: string }
+        reviewStatus: { type: string, enum: [pending, approved, rejected] }
+    VendorResearchInput:
+      type: object
+      required: [manufacturer, product, sourceUrl]
+      properties:
+        manufacturer: { type: string, minLength: 1 }
+        product: { type: string, minLength: 1 }
+        sourceUrl: { type: string, format: uri }
+    VendorResearchResult:
+      type: object
+      required: [sourceUrl, sourceTitle, claims]
+      properties:
+        sourceUrl: { type: string, format: uri }
+        sourceTitle: { type: string }
+        claims:
+          type: array
+          items: { type: string }
+    VendorSource:
+      allOf:
+        - $ref: "#/components/schemas/VendorSourceInput"
+        - type: object
+          required: [id, reviewStatus, reviewedAt, createdAt]
+          properties:
+            id: { type: string, format: uuid }
+            reviewStatus: { type: string, enum: [pending, approved, rejected] }
+            reviewedAt: { type: [string, "null"], format: date-time }
+            createdAt: { type: string, format: date-time }
+    GenerateProposalInput:
+      type: object
+      required: [aiConsent]
+      properties:
+        aiConsent: { type: boolean, const: true }
+    Proposal:
+      type: object
+      required: [id, tenderId, kind, title, content, status, version, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tenderId: { type: string, format: uuid }
+        kind: { type: string, enum: [technical, commercial] }
+        title: { type: string }
+        content: { type: string }
+        status: { type: string, enum: [draft, needs_review, approved] }
+        version: { type: integer }
+        updatedAt: { type: string, format: date-time }
+    ProposalPair:
+      type: object
+      required: [technical, commercial]
+      properties:
+        technical: { $ref: "#/components/schemas/Proposal" }
+        commercial: { $ref: "#/components/schemas/Proposal" }
+    ProposalUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        content: { type: string }
+        status: { type: string, enum: [draft, needs_review, approved] }
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name: { type: string, minLength: 1 }
+        size: { type: integer, minimum: 1 }
+        contentType: { type: string, minLength: 1 }
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL: { type: string, format: uri }
+        objectPath: { type: string }
 

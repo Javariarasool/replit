@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Tender Proposal Builder"
+description = "A proposal workspace for Pakistan government IT tenders. Organize tender documents, previous proposals, OEM datasheets, and company evidence, then prepare separate technical and commercial proposal drafts with cited vendor facts for human review."
+version = "1.0.0"
+id = "artifacts/tender-proposal-builder"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18527
+
+[services.development]
+run = "pnpm --filter @workspace/tender-proposal-builder run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/tender-proposal-builder", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/tender-proposal-builder/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18527"
+BASE_PATH = "/"
