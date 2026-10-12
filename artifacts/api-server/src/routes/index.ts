@@ -5,6 +5,7 @@ import storageRouter from "./storage";
 import tendersRouter from "./tenders";
 import evidenceRouter from "./evidence";
 import proposalsRouter from "./proposals";
+import libraryRouter from "./proposal-library";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(storageRouter);
 router.use(tendersRouter);
 router.use(evidenceRouter);
 router.use(proposalsRouter);
+router.use(libraryRouter);
 
 export default router;

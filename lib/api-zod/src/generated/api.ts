@@ -475,8 +475,13 @@ export const GenerateProposalPairParams = zod.object({
   "tenderId": zod.coerce.string().uuid()
 })
 
+export const generateProposalPairBodyLibraryEntryIdsMax = 5;
+
+
+
 export const GenerateProposalPairBody = zod.object({
-  "aiConsent": zod.literal(true)
+  "aiConsent": zod.literal(true),
+  "libraryEntryIds": zod.array(zod.string().uuid()).max(generateProposalPairBodyLibraryEntryIdsMax).optional()
 })
 
 export const GenerateProposalPairResponse = zod.object({
@@ -548,6 +553,186 @@ export const UpdateProposalResponse = zod.object({
   "version": zod.number().int(),
   "updatedAt": zod.coerce.date()
 })
+
+
+/**
+ * @summary Search the signed-in user's past tender-proposal pairs
+ */
+export const listProposalLibraryQueryQMax = 200;
+
+
+
+export const ListProposalLibraryQueryParams = zod.object({
+  "q": zod.coerce.string().max(listProposalLibraryQueryQMax).optional(),
+  "category": zod.enum(['hardware', 'networking', 'software', 'services', 'mixed']).optional(),
+  "outcome": zod.enum(['won', 'lost', 'rejected', 'unknown']).optional()
+})
+
+export const ListProposalLibraryResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "tenderTitle": zod.string(),
+  "agency": zod.string(),
+  "category": zod.enum(['hardware', 'networking', 'software', 'services', 'mixed']),
+  "referenceNumber": zod.string().nullable(),
+  "submissionDate": zod.coerce.date().nullable(),
+  "outcome": zod.enum(['won', 'lost', 'rejected', 'unknown']),
+  "versionLabel": zod.string(),
+  "notes": zod.string(),
+  "tenderObjectPath": zod.string().nullable(),
+  "technicalObjectPath": zod.string().nullable(),
+  "commercialObjectPath": zod.string().nullable(),
+  "sourceTenderId": zod.string().uuid().nullable(),
+  "extractionWarnings": zod.array(zod.string()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListProposalLibraryResponse = zod.array(ListProposalLibraryResponseItem)
+
+
+/**
+ * @summary Archive an uploaded tender-proposal pair or approved generated pair
+ */
+export const createLibraryEntryBodyTitleMax = 300;
+
+export const createLibraryEntryBodyTenderTitleMax = 500;
+
+export const createLibraryEntryBodyAgencyMax = 300;
+
+export const createLibraryEntryBodyVersionLabelMax = 100;
+
+export const createLibraryEntryBodyNotesMax = 20000;
+
+
+
+export const CreateLibraryEntryBody = zod.object({
+  "title": zod.string().min(1).max(createLibraryEntryBodyTitleMax),
+  "tenderTitle": zod.string().max(createLibraryEntryBodyTenderTitleMax).optional(),
+  "agency": zod.string().min(1).max(createLibraryEntryBodyAgencyMax),
+  "category": zod.enum(['hardware', 'networking', 'software', 'services', 'mixed']),
+  "referenceNumber": zod.string().nullish(),
+  "submissionDate": zod.coerce.date().nullish(),
+  "outcome": zod.enum(['won', 'lost', 'rejected', 'unknown']).optional(),
+  "versionLabel": zod.string().max(createLibraryEntryBodyVersionLabelMax).optional(),
+  "notes": zod.string().max(createLibraryEntryBodyNotesMax).optional(),
+  "tenderObjectPath": zod.string().optional(),
+  "technicalObjectPath": zod.string().optional(),
+  "commercialObjectPath": zod.string().optional(),
+  "sourceTenderId": zod.string().uuid().optional()
+})
+
+export const CreateLibraryEntryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "tenderTitle": zod.string(),
+  "agency": zod.string(),
+  "category": zod.enum(['hardware', 'networking', 'software', 'services', 'mixed']),
+  "referenceNumber": zod.string().nullable(),
+  "submissionDate": zod.coerce.date().nullable(),
+  "outcome": zod.enum(['won', 'lost', 'rejected', 'unknown']),
+  "versionLabel": zod.string(),
+  "notes": zod.string(),
+  "tenderObjectPath": zod.string().nullable(),
+  "technicalObjectPath": zod.string().nullable(),
+  "commercialObjectPath": zod.string().nullable(),
+  "sourceTenderId": zod.string().uuid().nullable(),
+  "extractionWarnings": zod.array(zod.string()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "tenderText": zod.string(),
+  "technicalText": zod.string(),
+  "commercialText": zod.string()
+}))
+
+
+export const GetLibraryEntryParams = zod.object({
+  "entryId": zod.coerce.string().uuid()
+})
+
+export const GetLibraryEntryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "tenderTitle": zod.string(),
+  "agency": zod.string(),
+  "category": zod.enum(['hardware', 'networking', 'software', 'services', 'mixed']),
+  "referenceNumber": zod.string().nullable(),
+  "submissionDate": zod.coerce.date().nullable(),
+  "outcome": zod.enum(['won', 'lost', 'rejected', 'unknown']),
+  "versionLabel": zod.string(),
+  "notes": zod.string(),
+  "tenderObjectPath": zod.string().nullable(),
+  "technicalObjectPath": zod.string().nullable(),
+  "commercialObjectPath": zod.string().nullable(),
+  "sourceTenderId": zod.string().uuid().nullable(),
+  "extractionWarnings": zod.array(zod.string()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "tenderText": zod.string(),
+  "technicalText": zod.string(),
+  "commercialText": zod.string()
+}))
+
+
+export const UpdateLibraryEntryParams = zod.object({
+  "entryId": zod.coerce.string().uuid()
+})
+
+export const updateLibraryEntryBodyTitleMax = 300;
+
+export const updateLibraryEntryBodyTenderTitleMax = 500;
+
+export const updateLibraryEntryBodyAgencyMax = 300;
+
+export const updateLibraryEntryBodyVersionLabelMax = 100;
+
+export const updateLibraryEntryBodyNotesMax = 20000;
+
+
+
+export const UpdateLibraryEntryBody = zod.object({
+  "title": zod.string().min(1).max(updateLibraryEntryBodyTitleMax).optional(),
+  "tenderTitle": zod.string().max(updateLibraryEntryBodyTenderTitleMax).optional(),
+  "agency": zod.string().min(1).max(updateLibraryEntryBodyAgencyMax).optional(),
+  "category": zod.enum(['hardware', 'networking', 'software', 'services', 'mixed']).optional(),
+  "referenceNumber": zod.string().nullish(),
+  "submissionDate": zod.coerce.date().nullish(),
+  "outcome": zod.enum(['won', 'lost', 'rejected', 'unknown']).optional(),
+  "versionLabel": zod.string().max(updateLibraryEntryBodyVersionLabelMax).optional(),
+  "notes": zod.string().max(updateLibraryEntryBodyNotesMax).optional()
+})
+
+export const UpdateLibraryEntryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "tenderTitle": zod.string(),
+  "agency": zod.string(),
+  "category": zod.enum(['hardware', 'networking', 'software', 'services', 'mixed']),
+  "referenceNumber": zod.string().nullable(),
+  "submissionDate": zod.coerce.date().nullable(),
+  "outcome": zod.enum(['won', 'lost', 'rejected', 'unknown']),
+  "versionLabel": zod.string(),
+  "notes": zod.string(),
+  "tenderObjectPath": zod.string().nullable(),
+  "technicalObjectPath": zod.string().nullable(),
+  "commercialObjectPath": zod.string().nullable(),
+  "sourceTenderId": zod.string().uuid().nullable(),
+  "extractionWarnings": zod.array(zod.string()),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "tenderText": zod.string(),
+  "technicalText": zod.string(),
+  "commercialText": zod.string()
+}))
+
+
+export const DeleteLibraryEntryParams = zod.object({
+  "entryId": zod.coerce.string().uuid()
+})
+
+export const DeleteLibraryEntryResponse = zod.void()
 
 
 /**

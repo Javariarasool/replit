@@ -1,12 +1,13 @@
 import { Router, type IRouter } from "express";
 import { and, eq, count } from "drizzle-orm";
-import { db, tendersTable, vendorSourcesTable, proposalsTable } from "@workspace/db";
+import { db, tendersTable, vendorSourcesTable, proposalsTable, evidenceTable } from "@workspace/db";
 import {
   GetDashboardSummaryResponse, ListTendersResponse, CreateTenderBody, CreateTenderResponse,
   GetTenderParams, GetTenderResponse, UpdateTenderParams, UpdateTenderBody, UpdateTenderResponse,
   DeleteTenderParams,
 } from "@workspace/api-zod";
 import { requireAuth, ownedTender, tenderView, listTenderViews } from "../lib/tender-data";
+import { removeUnusedUpload } from "../lib/upload-cleanup";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -75,6 +76,10 @@ router.patch("/tenders/:tenderId", async (req, res): Promise<void> => {
 router.delete("/tenders/:tenderId", async (req, res): Promise<void> => {
   const params = DeleteTenderParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid tender identifier." }); return; }
+  const tender = await ownedTender(params.data.tenderId, req.user!.id);
+  if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
+  const files = await db.select().from(evidenceTable).where(eq(evidenceTable.tenderId, tender.id));
+  for (const file of files) await removeUnusedUpload(file.objectPath, req.user!.id, { tenderId: tender.id });
   const [deleted] = await db.delete(tendersTable)
     .where(and(eq(tendersTable.id, params.data.tenderId), eq(tendersTable.ownerId, req.user!.id))).returning();
   if (!deleted) { res.status(404).json({ error: "Tender not found." }); return; }

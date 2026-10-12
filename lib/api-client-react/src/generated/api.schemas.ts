@@ -5,6 +5,155 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type LibraryEntryInputCategory = typeof LibraryEntryInputCategory[keyof typeof LibraryEntryInputCategory];
+
+
+export const LibraryEntryInputCategory = {
+  hardware: 'hardware',
+  networking: 'networking',
+  software: 'software',
+  services: 'services',
+  mixed: 'mixed',
+} as const;
+
+export type LibraryEntryInputOutcome = typeof LibraryEntryInputOutcome[keyof typeof LibraryEntryInputOutcome];
+
+
+export const LibraryEntryInputOutcome = {
+  won: 'won',
+  lost: 'lost',
+  rejected: 'rejected',
+  unknown: 'unknown',
+} as const;
+
+export interface LibraryEntryInput {
+  /**
+     * @minLength 1
+     * @maxLength 300
+     */
+  title: string;
+  /** @maxLength 500 */
+  tenderTitle?: string;
+  /**
+     * @minLength 1
+     * @maxLength 300
+     */
+  agency: string;
+  category: LibraryEntryInputCategory;
+  /** @nullable */
+  referenceNumber?: string | null;
+  /** @nullable */
+  submissionDate?: string | null;
+  outcome?: LibraryEntryInputOutcome;
+  /** @maxLength 100 */
+  versionLabel?: string;
+  /** @maxLength 20000 */
+  notes?: string;
+  tenderObjectPath?: string;
+  technicalObjectPath?: string;
+  commercialObjectPath?: string;
+  sourceTenderId?: string;
+}
+
+export type LibraryEntryUpdateCategory = typeof LibraryEntryUpdateCategory[keyof typeof LibraryEntryUpdateCategory];
+
+
+export const LibraryEntryUpdateCategory = {
+  hardware: 'hardware',
+  networking: 'networking',
+  software: 'software',
+  services: 'services',
+  mixed: 'mixed',
+} as const;
+
+export type LibraryEntryUpdateOutcome = typeof LibraryEntryUpdateOutcome[keyof typeof LibraryEntryUpdateOutcome];
+
+
+export const LibraryEntryUpdateOutcome = {
+  won: 'won',
+  lost: 'lost',
+  rejected: 'rejected',
+  unknown: 'unknown',
+} as const;
+
+export interface LibraryEntryUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 300
+     */
+  title?: string;
+  /** @maxLength 500 */
+  tenderTitle?: string;
+  /**
+     * @minLength 1
+     * @maxLength 300
+     */
+  agency?: string;
+  category?: LibraryEntryUpdateCategory;
+  /** @nullable */
+  referenceNumber?: string | null;
+  /** @nullable */
+  submissionDate?: string | null;
+  outcome?: LibraryEntryUpdateOutcome;
+  /** @maxLength 100 */
+  versionLabel?: string;
+  /** @maxLength 20000 */
+  notes?: string;
+}
+
+export type LibraryEntryCategory = typeof LibraryEntryCategory[keyof typeof LibraryEntryCategory];
+
+
+export const LibraryEntryCategory = {
+  hardware: 'hardware',
+  networking: 'networking',
+  software: 'software',
+  services: 'services',
+  mixed: 'mixed',
+} as const;
+
+export type LibraryEntryOutcome = typeof LibraryEntryOutcome[keyof typeof LibraryEntryOutcome];
+
+
+export const LibraryEntryOutcome = {
+  won: 'won',
+  lost: 'lost',
+  rejected: 'rejected',
+  unknown: 'unknown',
+} as const;
+
+export interface LibraryEntry {
+  id: string;
+  title: string;
+  tenderTitle: string;
+  agency: string;
+  category: LibraryEntryCategory;
+  /** @nullable */
+  referenceNumber: string | null;
+  /** @nullable */
+  submissionDate: string | null;
+  outcome: LibraryEntryOutcome;
+  versionLabel: string;
+  notes: string;
+  /** @nullable */
+  tenderObjectPath: string | null;
+  /** @nullable */
+  technicalObjectPath: string | null;
+  /** @nullable */
+  commercialObjectPath: string | null;
+  /** @nullable */
+  sourceTenderId: string | null;
+  extractionWarnings: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type LibraryEntryDetail = LibraryEntry & {
+  tenderText: string;
+  technicalText: string;
+  commercialText: string;
+};
+
 export interface HealthStatus {
   status: string;
 }
@@ -217,10 +366,11 @@ export type VendorSource = VendorSourceInput & ({
   createdAt: string;
 });
 
-export const GenerateProposalInputValue = {
-  aiConsent: true,
-} as const;
-export type GenerateProposalInput = typeof GenerateProposalInputValue;
+export interface GenerateProposalInput {
+  aiConsent: true;
+  /** @maxItems 5 */
+  libraryEntryIds?: string[];
+}
 
 export type ProposalKind = typeof ProposalKind[keyof typeof ProposalKind];
 
@@ -292,4 +442,34 @@ returnTo?: string;
 export type LogoutBrowserSessionParams = {
 returnTo?: string;
 };
+
+export type ListProposalLibraryParams = {
+/**
+ * @maxLength 200
+ */
+q?: string;
+category?: ListProposalLibraryCategory;
+outcome?: ListProposalLibraryOutcome;
+};
+
+export type ListProposalLibraryCategory = typeof ListProposalLibraryCategory[keyof typeof ListProposalLibraryCategory];
+
+
+export const ListProposalLibraryCategory = {
+  hardware: 'hardware',
+  networking: 'networking',
+  software: 'software',
+  services: 'services',
+  mixed: 'mixed',
+} as const;
+
+export type ListProposalLibraryOutcome = typeof ListProposalLibraryOutcome[keyof typeof ListProposalLibraryOutcome];
+
+
+export const ListProposalLibraryOutcome = {
+  won: 'won',
+  lost: 'lost',
+  rejected: 'rejected',
+  unknown: 'unknown',
+} as const;
 

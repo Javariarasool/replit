@@ -12,7 +12,7 @@ import {
 } from '@workspace/api-client-react';
 import type { Evidence, EvidenceInput, Proposal, Tender, TenderInputCategory, VendorResearchResult, VendorSource } from '@workspace/api-client-react';
 import {
-  ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Clock3, FilePlus2,
+  Archive, ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Clock3, FilePlus2,
   FileText, FolderOpen, Info, LoaderCircle, LogOut, Menu, Plus, Search, ShieldCheck, Sparkles, Trash2,
   Upload, X, ExternalLink, ClipboardList, PackageCheck, Building2, Layers3, RotateCcw,
 } from 'lucide-react';
@@ -20,6 +20,12 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import { Button, Dialog, EmptyState, Field, PageSkeleton, Pill, QueryError, StatusPill, cn, errorText, formatDate, inputClass } from '@/components/ui-kit';
+import { GenerateDialog } from '@/components/proposals/generate-dialog';
+import { ArchivePairButton } from '@/components/library/archive-button';
+import LibraryPage from '@/pages/library';
+import LibraryEntryPage from '@/pages/library-entry';
+import ProposalEditor from '@/pages/proposal-editor';
 
 const queryClient = new QueryClient();
 const categories = [
@@ -29,34 +35,8 @@ const categories = [
 ] as const;
 type DialogName = 'tender' | 'source' | 'research' | 'generate' | null;
 
-const cn = (...values: Array<string | false | undefined>) => values.filter(Boolean).join(' ');
-const formatDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set';
 const categoryName = (value: string) => categories.find(([id]) => id === value)?.[1] ?? value;
-const errorText = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please try again.';
 
-function Button({ children, variant = 'primary', className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'quiet' | 'danger' }) {
-  const looks = { primary: 'bg-primary text-primary-foreground hover:brightness-105 shadow-sm', secondary: 'bg-card border border-border text-foreground hover:bg-secondary', quiet: 'text-muted-foreground hover:bg-secondary hover:text-foreground', danger: 'text-destructive hover:bg-destructive/10' };
-  return <button {...props} className={cn('inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', looks[variant], className)} />;
-}
-function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
-  return <label className="grid gap-1.5 text-sm font-semibold text-foreground">{label}{children}{hint && <span className="text-xs font-normal text-muted-foreground">{hint}</span>}</label>;
-}
-const inputClass = 'w-full rounded-lg border border-input bg-card px-3 py-2.5 text-sm font-normal outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 placeholder:text-muted-foreground/70';
-function PageSkeleton() {
-  return <div className="space-y-5 enter" aria-label="Loading"><div className="h-8 w-56 animate-pulse rounded bg-secondary"/><div className="h-24 animate-pulse rounded-2xl bg-secondary"/><div className="h-64 animate-pulse rounded-2xl bg-secondary"/></div>;
-}
-function QueryError({ retry }: { retry: () => void }) {
-  return <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6 text-sm"><div className="flex items-center gap-2 font-semibold text-destructive"><CircleAlert size={17}/>Could not load this workspace</div><p className="mt-1 text-muted-foreground">Check your connection and try again.</p><Button variant="secondary" onClick={retry} className="mt-4" data-testid="button-retry"><RotateCcw size={15}/>Retry</Button></div>;
-}
-function Pill({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'green' | 'amber' | 'red' | 'blue' }) {
-  const tones = { neutral: 'bg-secondary text-muted-foreground', green: 'bg-emerald-900/10 text-emerald-800', amber: 'bg-amber-900/10 text-amber-800', red: 'bg-rose-900/10 text-rose-800', blue: 'bg-sky-900/10 text-sky-800' };
-  return <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold leading-none', tones[tone])}>{children}</span>;
-}
-function StatusPill({ value }: { value: string }) {
-  const labels: Record<string, string> = { draft: 'Draft', in_progress: 'In progress', ready_for_review: 'Ready for review', submitted: 'Submitted', pending: 'Pending review', approved: 'Approved', rejected: 'Rejected', needs_review: 'Needs review' };
-  const tone = value === 'approved' || value === 'submitted' ? 'green' : value === 'rejected' ? 'red' : value === 'pending' || value === 'ready_for_review' || value === 'needs_review' ? 'amber' : 'neutral';
-  return <Pill tone={tone}>{labels[value] ?? value.replaceAll('_', ' ')}</Pill>;
-}
 function AppShell({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const [location] = useLocation();
@@ -71,7 +51,7 @@ function AppShell({ children }: { children: ReactNode }) {
       </div>
       <div className="p-8"><p className="text-sm leading-6 text-muted-foreground">A careful workspace for Pakistani IT procurement teams. Sign in to continue to your tenders and proposal evidence.</p>
         <Button onClick={auth.login} className="mt-6 w-full" data-testid="button-login">Log in to Tender Desk <ArrowRight size={16}/></Button>
-        <p className="mt-4 text-center text-[11px] text-muted-foreground">Access is managed by your organization.</p>
+        <p className="mt-4 text-center text-[11px] text-muted-foreground">Sign in with Replit to access your private workspace.</p>
       </div>
     </section>
   </main>;
@@ -80,6 +60,7 @@ function AppShell({ children }: { children: ReactNode }) {
       <div className="flex items-center gap-3 px-6 pb-7 pt-7"><div className="grid size-10 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground"><ClipboardList size={21}/></div><div><p className="font-[Manrope] text-sm font-extrabold tracking-tight">Tender Desk</p><p className="mt-0.5 text-[10px] uppercase tracking-[.16em] text-sidebar-foreground/50">Pakistan · Procurement</p></div></div>
       <div className="px-4"><p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.18em] text-sidebar-foreground/40">Workspace</p>
         <Link href="/" onClick={() => setMobileMenu(false)} className={cn('flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition', location === '/' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/70')} data-testid="link-dashboard"><Layers3 size={17}/>Tenders</Link>
+        <Link href="/library" onClick={() => setMobileMenu(false)} className={cn('mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition', location.startsWith('/library') ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/70')} data-testid="link-library"><Archive size={17}/>Proposal library</Link>
       </div>
       <div className="mx-6 mt-8 border-t border-sidebar-border"/>
       <div className="mx-5 mt-5 rounded-xl border border-sidebar-border bg-sidebar-accent/40 p-4">
@@ -99,17 +80,6 @@ function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-[1440px] px-5 pb-16 pt-8 md:px-9 md:pt-10">{children}</main>
     </div>
   </div>;
-}
-function Dialog({ title, description, onClose, children, wide = false }: { title: string; description?: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/35 p-4 backdrop-blur-[2px]" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div role="dialog" aria-modal="true" className={cn('enter max-h-[92dvh] w-full overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl', wide ? 'max-w-2xl' : 'max-w-lg')}>
-      <div className="flex items-start justify-between border-b border-border px-6 py-5"><div><h2 className="font-[Manrope] text-lg font-bold">{title}</h2>{description && <p className="mt-1 max-w-lg text-sm leading-5 text-muted-foreground">{description}</p>}</div><button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" aria-label="Close dialog" data-testid="button-close-dialog"><X size={18}/></button></div>
-      <div className="p-6">{children}</div>
-    </div>
-  </div>;
-}
-function EmptyState({ title, body, icon = <FolderOpen size={20}/> }: { title: string; body: string; icon?: ReactNode }) {
-  return <div className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/60 px-5 py-10 text-center"><div className="grid size-10 place-items-center rounded-xl bg-secondary text-primary">{icon}</div><p className="mt-3 text-sm font-semibold">{title}</p><p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">{body}</p></div>;
 }
 function CreateTenderDialog({ close }: { close: () => void }) {
   const create = useCreateTender(); const qc = useQueryClient(); const [, navigate] = useLocation();
@@ -188,7 +158,7 @@ function TenderWorkspace() {
   if (detail.isError || !tender) return <QueryError retry={() => void detail.refetch()}/>;
   const pending = (sourceQuery.data ?? []).filter(source => source.reviewStatus === 'pending').length;
   const performDelete = () => deleteTender.mutate({ tenderId: id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getListTendersQueryKey() }); void qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); navigate('/'); }, onError: e => setError(errorText(e)) });
-  const runGenerate = () => { setError(''); gen.mutate({ tenderId: id, data: { aiConsent: true } }, { onSuccess: refresh, onError: e => setError(errorText(e)) }); setDialog(null); };
+  const runGenerate = (ids: string[]) => { setError(''); gen.mutate({ tenderId: id, data: { aiConsent: true, ...(ids.length ? { libraryEntryIds: ids } : {}) } }, { onSuccess: refresh, onError: e => setError(errorText(e)) }); setDialog(null); };
   const nav = [
     { key: 'requirements', label: 'Requirements', icon: <ClipboardList size={15}/> },
     { key: 'evidence', label: 'Evidence', count: evidenceQuery.data?.length ?? tender.evidenceCount, icon: <FolderOpen size={15}/> },
@@ -207,7 +177,7 @@ function TenderWorkspace() {
       {tab === 'requirements' && <Requirements tender={tender} onSave={(requirements, summary) => updateTender.mutate({ tenderId: id, data: { requirements, summary } }, { onSuccess: refresh })} saving={updateTender.isPending}/>}
       {tab === 'evidence' && <EvidencePanel tenderId={id} evidence={evidenceQuery.data ?? []} loading={evidenceQuery.isLoading} failed={evidenceQuery.isError} onRetry={() => void evidenceQuery.refetch()} onChanged={refresh}/>}
       {tab === 'sources' && <SourcesPanel sources={sourceQuery.data ?? []} loading={sourceQuery.isLoading} failed={sourceQuery.isError} onRetry={() => void sourceQuery.refetch()} onAdd={() => setDialog('source')} onResearch={() => setDialog('research')} onReview={(source, status) => reviewSource.mutate({ sourceId: source.id, data: { reviewStatus: status } }, { onSuccess: refresh })} busy={reviewSource.isPending}/>}
-      {tab === 'proposals' && <ProposalPanel tenderId={id} proposals={proposalsQuery.data ?? []} loading={proposalsQuery.isLoading} failed={proposalsQuery.isError} onRetry={() => void proposalsQuery.refetch()} onGenerate={() => setDialog('generate')} generating={gen.isPending} error={error}/>}
+      {tab === 'proposals' && <ProposalPanel tender={tender} proposals={proposalsQuery.data ?? []} loading={proposalsQuery.isLoading} failed={proposalsQuery.isError} onRetry={() => void proposalsQuery.refetch()} onGenerate={() => setDialog('generate')} generating={gen.isPending} error={error}/>}
     </div>
     {dialog === 'source' && <SourceDialog tenderId={id} close={() => setDialog(null)} onDone={refresh}/>}
     {dialog === 'research' && <ResearchDialog tenderId={id} close={() => setDialog(null)} onDone={refresh}/>}
@@ -340,10 +310,10 @@ function ResearchDialog({ tenderId, close, onDone }: { tenderId: string; close: 
     <div className="mt-5 flex justify-end border-t border-border pt-4"><Button variant="quiet" onClick={close}>Close</Button></div>
   </Dialog>;
 }
-function ProposalPanel({ proposals, loading, failed, onRetry, onGenerate, generating, error }: { tenderId: string; proposals: Proposal[]; loading: boolean; failed: boolean; onRetry: () => void; onGenerate: () => void; generating: boolean; error: string }) {
+function ProposalPanel({ tender, proposals, loading, failed, onRetry, onGenerate, generating, error }: { tender: Tender; proposals: Proposal[]; loading: boolean; failed: boolean; onRetry: () => void; onGenerate: () => void; generating: boolean; error: string }) {
   if (loading) return <PageSkeleton/>; if (failed) return <QueryError retry={onRetry}/>;
-  const technical = proposals.find(p => p.kind === 'technical'); const commercial = proposals.find(p => p.kind === 'commercial');
-  return <section><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-primary">Separate drafts</p><h2 className="mt-1 font-[Manrope] text-xl font-bold">Technical & commercial proposals</h2><p className="mt-1 text-xs text-muted-foreground">Each draft is independently editable and exportable.</p></div><Button onClick={onGenerate} disabled={generating} data-testid="button-generate-proposals">{generating ? <LoaderCircle size={15} className="animate-spin"/> : <Sparkles size={15}/>}Generate proposal pair</Button></div>
+  const latest = (kind: string) => [...proposals].filter(p => p.kind === kind).sort((a, b) => b.version - a.version)[0]; const technical = latest('technical'); const commercial = latest('commercial'); const older = proposals.filter(p => p !== technical && p !== commercial).sort((a, b) => b.version - a.version);
+  return <section><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-primary">Separate drafts</p><h2 className="mt-1 font-[Manrope] text-xl font-bold">Technical & commercial proposals</h2><p className="mt-1 text-xs text-muted-foreground">Each draft is independently editable and exportable.</p></div><div className="flex flex-wrap gap-2"><ArchivePairButton tender={tender} technical={technical} commercial={commercial}/><Button onClick={onGenerate} disabled={generating} data-testid="button-generate-proposals">{generating ? <LoaderCircle size={15} className="animate-spin"/> : <Sparkles size={15}/>}Generate proposal pair</Button></div></div>
     {error && <p className="mt-3 rounded-lg bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
     {!proposals.length ? <div className="mt-5"><EmptyState title="No proposal drafts yet" body="Generate a technical and a commercial draft separately after reviewing the content you want processed." icon={<FileText size={20}/>}/></div>
       : <div className="mt-5 grid gap-4 lg:grid-cols-2">{(['technical', 'commercial'] as const).map(kind => {
@@ -352,76 +322,13 @@ function ProposalPanel({ proposals, loading, failed, onRetry, onGenerate, genera
           {proposal ? <><p className="mt-4 line-clamp-3 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{proposal.content || 'This draft is ready for your edits.'}</p><Link href={`/proposals/${proposal.id}`} className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-primary hover:underline" data-testid={`link-edit-proposal-${proposal.id}`}>Open and edit <ArrowRight size={14}/></Link></> : <p className="mt-4 rounded-lg bg-secondary/60 p-3 text-xs leading-5 text-muted-foreground">Use Generate proposal pair to create both drafts after explicit AI processing consent.</p>}
         </div>;
       })}</div>}
+    {older.length > 0 && <div className="mt-4 rounded-xl border border-border bg-card p-4" data-testid="section-older-drafts"><p className="text-xs font-bold">Earlier generated versions</p><div className="mt-2 flex flex-wrap gap-2">{older.map(p => <Link key={p.id} href={`/proposals/${p.id}`} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-primary hover:bg-secondary" data-testid={`link-older-${p.id}`}>{p.kind} v{p.version} · {p.status.replace('_', ' ')}</Link>)}</div></div>}
     {proposals.length > 0 && <p className="mt-4 text-[11px] text-muted-foreground">Drafts remain separate. Review and approve each proposal independently before submission.</p>}
   </section>;
 }
-function GenerateDialog({ close, onConfirm, loading }: { close: () => void; onConfirm: () => void; loading: boolean }) {
-  const [checked, setChecked] = useState(false);
-  return <Dialog title="Confirm AI draft generation" description="Review this before creating the technical and commercial proposal drafts." onClose={close}>
-    <div className="rounded-xl border border-amber-900/15 bg-amber-900/[.045] p-4"><div className="flex items-start gap-3"><div className="grid size-8 shrink-0 place-items-center rounded-lg bg-amber-900/10 text-amber-900"><Info size={17}/></div><div><p className="text-sm font-bold">Your selected tender content will be processed</p><p className="mt-2 text-xs leading-5 text-muted-foreground">Generating drafts sends selected tender details, requirements, evidence notes and approved source claims to OpenAI via Replit AI Integrations. Usage is billed to Replit credits. Review and edit all generated text before use.</p></div></div></div>
-    <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3.5 text-xs leading-5"><input type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} className="mt-0.5 size-4 accent-primary" data-testid="checkbox-ai-consent"/><span>I understand what content will be sent and consent to processing for this proposal generation.</span></label>
-    <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4"><Button variant="quiet" onClick={close}>Cancel</Button><Button onClick={onConfirm} disabled={!checked || loading} data-testid="button-confirm-generate">{loading ? <LoaderCircle size={15} className="animate-spin"/> : <Sparkles size={15}/>}Generate both drafts</Button></div>
-  </Dialog>;
-}
-function ProposalEditor() {
-  const params = useParams<{ proposalId: string }>(); const proposalId = params.proposalId ?? ''; const qc = useQueryClient();
-  const update = useUpdateProposal(); const [location, navigate] = useLocation(); void location;
-  const proposal = useMemo(() => {
-    const matches = qc.getQueryCache().findAll({ predicate: query => Array.isArray(query.queryKey) && typeof query.queryKey[0] === 'string' && query.queryKey[0].includes('/proposals') });
-    for (const query of matches) { const list = query.state.data as Proposal[] | undefined; const found = list?.find(item => item.id === proposalId); if (found) return found; }
-    return undefined;
-  }, [qc, proposalId, update.isSuccess]);
-  const [title, setTitle] = useState(proposal?.title ?? ''); const [content, setContent] = useState(proposal?.content ?? '');
-  useEffect(() => { if (proposal) { setTitle(proposal.title); setContent(proposal.content); } }, [proposal?.id]);
-  const onUpdated = (updated: Proposal) => {
-    const key = getListProposalsQueryKey(updated.tenderId);
-    qc.setQueryData<Proposal[]>(key, old => old?.map(item => item.id === updated.id ? updated : item));
-    void qc.invalidateQueries({ queryKey: key });
-  };
-  const save = () => update.mutate({ proposalId, data: { title: title.trim(), content } }, { onSuccess: onUpdated });
-  const changeStatus = (status: Proposal['status']) => update.mutate({ proposalId, data: { status } }, { onSuccess: onUpdated });
-  const exportDocx = () => { const bytes = createDocx(title, content); const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }); const anchor = document.createElement('a'); anchor.href = URL.createObjectURL(blob); anchor.download = `${proposal?.kind ?? 'proposal'}-proposal.docx`; anchor.click(); URL.revokeObjectURL(anchor.href); };
-  const exportPdf = () => window.print();
-  if (!proposal) return <div className="mx-auto max-w-xl py-14"><EmptyState title="Draft not in this session" body="Open the proposal from its tender workspace so the draft can be loaded from the current workspace record." icon={<FileText size={20}/>}/><div className="mt-4 flex justify-center"><Link href="/" className="text-sm font-bold text-primary hover:underline" data-testid="link-back-tenders">Back to tenders</Link></div></div>;
-  return <div className="enter">
-    <Link href={`/tenders/${proposal.tenderId}`} className="mb-5 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary" data-testid="link-back-workspace"><ArrowLeft size={14}/>Tender workspace</Link>
-    <div className="flex flex-col justify-between gap-4 border-b border-border pb-5 md:flex-row md:items-end">
-      <div><div className="flex items-center gap-2"><Pill tone={proposal.kind === 'technical' ? 'blue' : 'amber'}>{proposal.kind} proposal</Pill><StatusPill value={proposal.status}/></div><h1 className="mt-2 font-[Manrope] text-3xl font-extrabold tracking-tight">Edit proposal draft</h1><p className="mt-1 text-xs text-muted-foreground">Version {proposal.version} · Last saved {formatDate(proposal.updatedAt)}</p></div>
-      <div className="flex flex-wrap gap-2"><select className={cn(inputClass, 'w-auto py-2 text-xs')} aria-label="Proposal review status" value={proposal.status} onChange={e => changeStatus(e.target.value as Proposal['status'])} disabled={update.isPending} data-testid="select-proposal-status"><option value="draft">Draft</option><option value="needs_review">Needs review</option><option value="approved">Approved</option></select><Button variant="secondary" onClick={exportDocx} data-testid="button-export-docx"><ArrowDownToLine size={15}/>Export DOCX</Button><Button variant="secondary" onClick={exportPdf} data-testid="button-export-pdf"><ArrowDownToLine size={15}/>Export PDF</Button><Button onClick={save} disabled={update.isPending} data-testid="button-save-proposal">{update.isPending ? <LoaderCircle size={15} className="animate-spin"/> : <Check size={15}/>}Save draft</Button></div>
-    </div>
-    {update.isError && <div className="mt-4 rounded-lg bg-destructive/5 p-3 text-sm text-destructive">{errorText(update.error)}</div>}{update.isSuccess && <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-emerald-800"><CheckCircle2 size={15}/>Saved just now</div>}
-    <div className="mx-auto mt-7 max-w-4xl rounded-xl border border-border bg-card px-5 py-7 shadow-sm md:px-12 md:py-10"><div className="mb-6 border-b border-border pb-5"><p className="font-mono text-[10px] uppercase tracking-[.18em] text-primary">Tender Desk · Working document</p><input className="mt-3 w-full border-0 bg-transparent p-0 font-[Manrope] text-2xl font-bold outline-none focus:ring-0" value={title} onChange={e => setTitle(e.target.value)} aria-label="Proposal title" data-testid="input-proposal-title"/><p className="mt-2 text-xs text-muted-foreground">This is a working draft. Confirm every statement against its tender evidence before submission.</p></div>
-      <textarea className="min-h-[55vh] w-full resize-y border-0 bg-transparent p-0 text-sm leading-7 outline-none focus:ring-0 placeholder:text-muted-foreground/60" value={content} onChange={e => setContent(e.target.value)} placeholder="Write and refine this proposal draft…" aria-label="Proposal content" data-testid="textarea-proposal-content"/>
-    </div>
-    <p className="mx-auto mt-3 max-w-4xl text-[11px] text-muted-foreground">DOCX export downloads an editable document. PDF export opens your browser's print dialog; choose “Save as PDF”.</p>
-  </div>;
-}
-function escapeHTML(value: string) { return value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char)); }
-function createDocx(title: string, content: string) {
-  const encoder = new TextEncoder();
-  const entries: Array<[string, string]> = [
-    ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'],
-    ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'],
-    ['word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t xml:space="preserve">${escapeHTML(title)}</w:t></w:r></w:p>${content.split(/\r?\n/).map(line => `<w:p><w:r><w:t xml:space="preserve">${escapeHTML(line)}</w:t></w:r></w:p>`).join('')}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`],
-  ];
-  const crc32 = (bytes: Uint8Array) => { let crc = 0xffffffff; for (const byte of bytes) { crc ^= byte; for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0); } return (crc ^ 0xffffffff) >>> 0; };
-  const local: Uint8Array[] = []; const central: Uint8Array[] = []; let offset = 0;
-  const u16 = (view: DataView, at: number, value: number) => view.setUint16(at, value, true);
-  const u32 = (view: DataView, at: number, value: number) => view.setUint32(at, value >>> 0, true);
-  for (const [name, text] of entries) {
-    const nameBytes = encoder.encode(name); const data = encoder.encode(text); const crc = crc32(data);
-    const localPart = new Uint8Array(30 + nameBytes.length + data.length); const lv = new DataView(localPart.buffer);
-    u32(lv, 0, 0x04034b50); u16(lv, 4, 20); u16(lv, 6, 0); u16(lv, 8, 0); u16(lv, 10, 0); u16(lv, 12, 0); u32(lv, 14, crc); u32(lv, 18, data.length); u32(lv, 22, data.length); u16(lv, 26, nameBytes.length); u16(lv, 28, 0); localPart.set(nameBytes, 30); localPart.set(data, 30 + nameBytes.length); local.push(localPart);
-    const centralPart = new Uint8Array(46 + nameBytes.length); const cv = new DataView(centralPart.buffer);
-    u32(cv, 0, 0x02014b50); u16(cv, 4, 20); u16(cv, 6, 20); u16(cv, 8, 0); u16(cv, 10, 0); u16(cv, 12, 0); u16(cv, 14, 0); u32(cv, 16, crc); u32(cv, 20, data.length); u32(cv, 24, data.length); u16(cv, 28, nameBytes.length); u16(cv, 30, 0); u16(cv, 32, 0); u16(cv, 34, 0); u16(cv, 36, 0); u32(cv, 38, 0); u32(cv, 42, offset); centralPart.set(nameBytes, 46); central.push(centralPart); offset += localPart.length;
-  }
-  const centralSize = central.reduce((sum, part) => sum + part.length, 0); const end = new Uint8Array(22); const ev = new DataView(end.buffer);
-  u32(ev, 0, 0x06054b50); u16(ev, 4, 0); u16(ev, 6, 0); u16(ev, 8, entries.length); u16(ev, 10, entries.length); u32(ev, 12, centralSize); u32(ev, 16, offset); u16(ev, 20, 0);
-  const all = [...local, ...central, end]; const output = new Uint8Array(all.reduce((sum, part) => sum + part.length, 0)); let cursor = 0; for (const part of all) { output.set(part, cursor); cursor += part.length; } return output;
-}
 function Router() {
   const [location] = useLocation();
-  return <AppShell><ErrorBoundary resetKey={location}><Switch><Route path="/" component={Dashboard}/><Route path="/tenders/:tenderId" component={TenderWorkspace}/><Route path="/proposals/:proposalId" component={ProposalEditor}/><Route component={NotFound}/></Switch></ErrorBoundary></AppShell>;
+  return <AppShell><ErrorBoundary resetKey={location}><Switch><Route path="/" component={Dashboard}/><Route path="/tenders/:tenderId" component={TenderWorkspace}/><Route path="/library" component={LibraryPage}/><Route path="/library/:entryId" component={LibraryEntryPage}/><Route path="/proposals/:proposalId" component={ProposalEditor}/><Route component={NotFound}/></Switch></ErrorBoundary></AppShell>;
 }
 function App() {
   return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router/></WouterRouter><Toaster/></TooltipProvider></QueryClientProvider>;

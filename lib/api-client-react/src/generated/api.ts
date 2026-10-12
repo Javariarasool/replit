@@ -28,6 +28,11 @@ import type {
   EvidenceInput,
   GenerateProposalInput,
   HealthStatus,
+  LibraryEntry,
+  LibraryEntryDetail,
+  LibraryEntryInput,
+  LibraryEntryUpdate,
+  ListProposalLibraryParams,
   LogoutBrowserSessionParams,
   Proposal,
   ProposalPair,
@@ -1870,6 +1875,400 @@ export const useUpdateProposal = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateProposalMutationOptions(options));
+    }
+
+export const getListProposalLibraryUrl = (params?: ListProposalLibraryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/proposal-library?${stringifiedParams}` : `/api/proposal-library`
+}
+
+/**
+ * @summary Search the signed-in user's past tender-proposal pairs
+ */
+export const listProposalLibrary = async (params?: ListProposalLibraryParams, options?: Parameters<typeof customFetch>[1]): Promise<LibraryEntry[]> => {
+
+  return customFetch<LibraryEntry[]>(getListProposalLibraryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProposalLibraryQueryKey = (params?: ListProposalLibraryParams,) => {
+    return [
+    `/api/proposal-library`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListProposalLibraryQueryOptions = <TData = Awaited<ReturnType<typeof listProposalLibrary>>, TError = ErrorType<unknown>>(params?: ListProposalLibraryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProposalLibrary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProposalLibraryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProposalLibrary>>> = ({ signal }) => listProposalLibrary(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProposalLibrary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProposalLibraryQueryResult = NonNullable<Awaited<ReturnType<typeof listProposalLibrary>>>
+export type ListProposalLibraryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Search the signed-in user's past tender-proposal pairs
+ */
+
+export function useListProposalLibrary<TData = Awaited<ReturnType<typeof listProposalLibrary>>, TError = ErrorType<unknown>>(
+ params?: ListProposalLibraryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProposalLibrary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProposalLibraryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateLibraryEntryUrl = () => {
+
+
+
+
+  return `/api/proposal-library`
+}
+
+/**
+ * @summary Archive an uploaded tender-proposal pair or approved generated pair
+ */
+export const createLibraryEntry = async (libraryEntryInput: LibraryEntryInput, options?: Parameters<typeof customFetch>[1]): Promise<LibraryEntryDetail> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LibraryEntryDetail>(getCreateLibraryEntryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(libraryEntryInput)
+  }
+);}
+
+
+
+
+
+export const getCreateLibraryEntryMutationKey = () => ['createLibraryEntry'] as const;
+
+export const getCreateLibraryEntryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLibraryEntry>>, TError,CreateLibraryEntryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLibraryEntry>>, TError,CreateLibraryEntryMutationVariables, TContext> => {
+
+const mutationKey = getCreateLibraryEntryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLibraryEntry>>, CreateLibraryEntryMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLibraryEntry(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLibraryEntryMutationResult = NonNullable<Awaited<ReturnType<typeof createLibraryEntry>>>
+    export type CreateLibraryEntryMutationBody = BodyType<LibraryEntryInput>
+    export type CreateLibraryEntryMutationError = ErrorType<unknown>
+    export type CreateLibraryEntryMutationVariables = {data: BodyType<LibraryEntryInput>}
+
+    /**
+ * @summary Archive an uploaded tender-proposal pair or approved generated pair
+ */
+export const useCreateLibraryEntry = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLibraryEntry>>, TError,CreateLibraryEntryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createLibraryEntry>>,
+        TError,
+        CreateLibraryEntryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateLibraryEntryMutationOptions(options));
+    }
+
+export const getGetLibraryEntryUrl = (entryId: string,) => {
+
+
+
+
+  return `/api/proposal-library/${entryId}`
+}
+
+export const getLibraryEntry = async (entryId: string, options?: Parameters<typeof customFetch>[1]): Promise<LibraryEntryDetail> => {
+
+  return customFetch<LibraryEntryDetail>(getGetLibraryEntryUrl(entryId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLibraryEntryQueryKey = (entryId: string,) => {
+    return [
+    `/api/proposal-library/${entryId}`
+    ] as const;
+    }
+
+
+export const getGetLibraryEntryQueryOptions = <TData = Awaited<ReturnType<typeof getLibraryEntry>>, TError = ErrorType<unknown>>(entryId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLibraryEntry>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLibraryEntryQueryKey(entryId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLibraryEntry>>> = ({ signal }) => getLibraryEntry(entryId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: entryId !== null && entryId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLibraryEntry>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLibraryEntryQueryResult = NonNullable<Awaited<ReturnType<typeof getLibraryEntry>>>
+export type GetLibraryEntryQueryError = ErrorType<unknown>
+
+
+
+export function useGetLibraryEntry<TData = Awaited<ReturnType<typeof getLibraryEntry>>, TError = ErrorType<unknown>>(
+ entryId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLibraryEntry>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLibraryEntryQueryOptions(entryId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateLibraryEntryUrl = (entryId: string,) => {
+
+
+
+
+  return `/api/proposal-library/${entryId}`
+}
+
+export const updateLibraryEntry = async (entryId: string,
+    libraryEntryUpdate: LibraryEntryUpdate, options?: Parameters<typeof customFetch>[1]): Promise<LibraryEntryDetail> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LibraryEntryDetail>(getUpdateLibraryEntryUrl(entryId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(libraryEntryUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateLibraryEntryMutationKey = () => ['updateLibraryEntry'] as const;
+
+export const getUpdateLibraryEntryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLibraryEntry>>, TError,UpdateLibraryEntryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateLibraryEntry>>, TError,UpdateLibraryEntryMutationVariables, TContext> => {
+
+const mutationKey = getUpdateLibraryEntryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLibraryEntry>>, UpdateLibraryEntryMutationVariables> = (props) => {
+          const {entryId,data} = props ?? {};
+
+          return  updateLibraryEntry(entryId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLibraryEntryMutationResult = NonNullable<Awaited<ReturnType<typeof updateLibraryEntry>>>
+    export type UpdateLibraryEntryMutationBody = BodyType<LibraryEntryUpdate>
+    export type UpdateLibraryEntryMutationError = ErrorType<unknown>
+    export type UpdateLibraryEntryMutationVariables = {entryId: string;data: BodyType<LibraryEntryUpdate>}
+
+    export const useUpdateLibraryEntry = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLibraryEntry>>, TError,UpdateLibraryEntryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateLibraryEntry>>,
+        TError,
+        UpdateLibraryEntryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateLibraryEntryMutationOptions(options));
+    }
+
+export const getDeleteLibraryEntryUrl = (entryId: string,) => {
+
+
+
+
+  return `/api/proposal-library/${entryId}`
+}
+
+export const deleteLibraryEntry = async (entryId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteLibraryEntryUrl(entryId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteLibraryEntryMutationKey = () => ['deleteLibraryEntry'] as const;
+
+export const getDeleteLibraryEntryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLibraryEntry>>, TError,DeleteLibraryEntryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteLibraryEntry>>, TError,DeleteLibraryEntryMutationVariables, TContext> => {
+
+const mutationKey = getDeleteLibraryEntryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteLibraryEntry>>, DeleteLibraryEntryMutationVariables> = (props) => {
+          const {entryId} = props ?? {};
+
+          return  deleteLibraryEntry(entryId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteLibraryEntryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteLibraryEntry>>>
+
+    export type DeleteLibraryEntryMutationError = ErrorType<unknown>
+    export type DeleteLibraryEntryMutationVariables = {entryId: string}
+
+    export const useDeleteLibraryEntry = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLibraryEntry>>, TError,DeleteLibraryEntryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteLibraryEntry>>,
+        TError,
+        DeleteLibraryEntryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteLibraryEntryMutationOptions(options));
     }
 
 export const getRequestUploadUrlUrl = () => {

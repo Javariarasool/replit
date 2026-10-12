@@ -6,7 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export const GenerateProposalInputValue = {
-  aiConsent: true,
-} as const;
-export type GenerateProposalInput = typeof GenerateProposalInputValue;
+export interface GenerateProposalInput {
+  aiConsent: true;
+  /** @maxItems 5 */
+  libraryEntryIds?: string[];
+}

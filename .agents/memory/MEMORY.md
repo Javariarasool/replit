@@ -1,0 +1,1 @@
+- [Proposal library scope](proposal-library-scope.md) — reusable private tender–proposal pairs; historical documents guide structure, not current bidder facts or prices.

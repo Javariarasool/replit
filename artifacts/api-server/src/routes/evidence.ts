@@ -11,6 +11,7 @@ import {
 import { requireAuth, ownedTender } from "../lib/tender-data";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { researchSource } from "../lib/vendor-research";
+import { removeUnusedUpload } from "../lib/upload-cleanup";
 
 const router: IRouter = Router();
 const storage = new ObjectStorageService();
@@ -47,10 +48,8 @@ router.delete("/evidence/:evidenceId", async (req, res): Promise<void> => {
   if (!params.success) { res.status(400).json({ error: "Invalid evidence identifier." }); return; }
   const [row] = await db.select().from(evidenceTable).where(and(eq(evidenceTable.id, params.data.evidenceId), eq(evidenceTable.ownerId, req.user!.id)));
   if (!row) { res.status(404).json({ error: "Evidence not found." }); return; }
-  const object = await storage.getObjectEntityFile(row.objectPath);
-  await object.delete({ ignoreNotFound: true });
+  await removeUnusedUpload(row.objectPath, req.user!.id, { evidenceId: row.id });
   await db.delete(evidenceTable).where(eq(evidenceTable.id, row.id));
-  await db.delete(uploadsTable).where(eq(uploadsTable.objectPath, row.objectPath));
   res.sendStatus(204);
 });
 

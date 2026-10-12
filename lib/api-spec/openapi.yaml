@@ -386,6 +386,80 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Proposal"
+  /proposal-library:
+    get:
+      operationId: listProposalLibrary
+      tags: [library]
+      summary: Search the signed-in user's past tender-proposal pairs
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: category
+          in: query
+          schema: { type: string, enum: [hardware, networking, software, services, mixed] }
+        - name: outcome
+          in: query
+          schema: { type: string, enum: [won, lost, rejected, unknown] }
+      responses:
+        "200":
+          description: Matching historical pairs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/LibraryEntry" }
+    post:
+      operationId: createLibraryEntry
+      tags: [library]
+      summary: Archive an uploaded tender-proposal pair or approved generated pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LibraryEntryInput" }
+      responses:
+        "201":
+          description: Archived pair.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibraryEntryDetail" }
+  /proposal-library/{entryId}:
+    get:
+      operationId: getLibraryEntry
+      tags: [library]
+      parameters:
+        - $ref: "#/components/parameters/LibraryEntryId"
+      responses:
+        "200":
+          description: Archived documents and searchable extracted text.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibraryEntryDetail" }
+    patch:
+      operationId: updateLibraryEntry
+      tags: [library]
+      parameters:
+        - $ref: "#/components/parameters/LibraryEntryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LibraryEntryUpdate" }
+      responses:
+        "200":
+          description: Updated archive metadata.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibraryEntryDetail" }
+    delete:
+      operationId: deleteLibraryEntry
+      tags: [library]
+      parameters:
+        - $ref: "#/components/parameters/LibraryEntryId"
+      responses:
+        "204":
+          description: Archive deleted.
   /storage/uploads/request-url:
     post:
       operationId: requestUploadUrl
@@ -406,12 +480,78 @@ paths:
                 $ref: "#/components/schemas/UploadUrlResponse"
 components:
   parameters:
+    LibraryEntryId:
+      name: entryId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     TenderId:
       name: tenderId
       in: path
       required: true
       schema: { type: string, format: uuid }
   schemas:
+    LibraryEntryInput:
+      type: object
+      required: [title, agency, category]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        tenderTitle: { type: string, maxLength: 500 }
+        agency: { type: string, minLength: 1, maxLength: 300 }
+        category: { type: string, enum: [hardware, networking, software, services, mixed] }
+        referenceNumber: { type: [string, "null"] }
+        submissionDate: { type: [string, "null"], format: date }
+        outcome: { type: string, enum: [won, lost, rejected, unknown] }
+        versionLabel: { type: string, maxLength: 100 }
+        notes: { type: string, maxLength: 20000 }
+        tenderObjectPath: { type: string }
+        technicalObjectPath: { type: string }
+        commercialObjectPath: { type: string }
+        sourceTenderId: { type: string, format: uuid }
+    LibraryEntryUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        tenderTitle: { type: string, maxLength: 500 }
+        agency: { type: string, minLength: 1, maxLength: 300 }
+        category: { type: string, enum: [hardware, networking, software, services, mixed] }
+        referenceNumber: { type: [string, "null"] }
+        submissionDate: { type: [string, "null"], format: date }
+        outcome: { type: string, enum: [won, lost, rejected, unknown] }
+        versionLabel: { type: string, maxLength: 100 }
+        notes: { type: string, maxLength: 20000 }
+    LibraryEntry:
+      type: object
+      required: [id, title, tenderTitle, agency, category, referenceNumber, submissionDate, outcome, versionLabel, notes, tenderObjectPath, technicalObjectPath, commercialObjectPath, sourceTenderId, extractionWarnings, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        tenderTitle: { type: string }
+        agency: { type: string }
+        category: { type: string, enum: [hardware, networking, software, services, mixed] }
+        referenceNumber: { type: [string, "null"] }
+        submissionDate: { type: [string, "null"], format: date }
+        outcome: { type: string, enum: [won, lost, rejected, unknown] }
+        versionLabel: { type: string }
+        notes: { type: string }
+        tenderObjectPath: { type: [string, "null"] }
+        technicalObjectPath: { type: [string, "null"] }
+        commercialObjectPath: { type: [string, "null"] }
+        sourceTenderId: { type: [string, "null"], format: uuid }
+        extractionWarnings:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    LibraryEntryDetail:
+      allOf:
+        - $ref: "#/components/schemas/LibraryEntry"
+        - type: object
+          required: [tenderText, technicalText, commercialText]
+          properties:
+            tenderText: { type: string }
+            technicalText: { type: string }
+            commercialText: { type: string }
     HealthStatus:
       type: object
       properties:
@@ -562,6 +702,11 @@ components:
       required: [aiConsent]
       properties:
         aiConsent: { type: boolean, const: true }
+        libraryEntryIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items: { type: string, format: uuid }
     Proposal:
       type: object
       required: [id, tenderId, kind, title, content, status, version, updatedAt]
