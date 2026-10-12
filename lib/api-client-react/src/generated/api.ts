@@ -22,11 +22,16 @@ import type {
 import type {
   AuthUserEnvelope,
   BeginBrowserLoginParams,
+  CompanyEvidence,
+  CompanyEvidenceInput,
+  CompanyEvidenceLink,
+  CompanyEvidenceMetadata,
   DashboardSummary,
   DocumentExtraction,
   ErrorEnvelope,
   ErrorResponse,
   Evidence,
+  EvidenceApplicability,
   EvidenceInput,
   ExtractRequirementsInput,
   ExtractionInput,
@@ -87,6 +92,476 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListCompanyEvidenceUrl = () => {
+
+
+
+
+  return `/api/company-evidence`
+}
+
+export const listCompanyEvidence = async ( options?: Parameters<typeof customFetch>[1]): Promise<CompanyEvidence[]> => {
+
+  return customFetch<CompanyEvidence[]>(getListCompanyEvidenceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCompanyEvidenceQueryKey = () => {
+    return [
+    `/api/company-evidence`
+    ] as const;
+    }
+
+
+export const getListCompanyEvidenceQueryOptions = <TData = Awaited<ReturnType<typeof listCompanyEvidence>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCompanyEvidence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCompanyEvidenceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCompanyEvidence>>> = ({ signal }) => listCompanyEvidence({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCompanyEvidence>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCompanyEvidenceQueryResult = NonNullable<Awaited<ReturnType<typeof listCompanyEvidence>>>
+export type ListCompanyEvidenceQueryError = ErrorType<unknown>
+
+
+
+export function useListCompanyEvidence<TData = Awaited<ReturnType<typeof listCompanyEvidence>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCompanyEvidence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCompanyEvidenceQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCompanyEvidenceUrl = () => {
+
+
+
+
+  return `/api/company-evidence`
+}
+
+export const createCompanyEvidence = async (companyEvidenceInput: CompanyEvidenceInput, options?: Parameters<typeof customFetch>[1]): Promise<CompanyEvidence> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CompanyEvidence>(getCreateCompanyEvidenceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(companyEvidenceInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCompanyEvidenceMutationKey = () => ['createCompanyEvidence'] as const;
+
+export const getCreateCompanyEvidenceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCompanyEvidence>>, TError,CreateCompanyEvidenceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCompanyEvidence>>, TError,CreateCompanyEvidenceMutationVariables, TContext> => {
+
+const mutationKey = getCreateCompanyEvidenceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCompanyEvidence>>, CreateCompanyEvidenceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCompanyEvidence(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCompanyEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof createCompanyEvidence>>>
+    export type CreateCompanyEvidenceMutationBody = BodyType<CompanyEvidenceInput>
+    export type CreateCompanyEvidenceMutationError = ErrorType<unknown>
+    export type CreateCompanyEvidenceMutationVariables = {data: BodyType<CompanyEvidenceInput>}
+
+    export const useCreateCompanyEvidence = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCompanyEvidence>>, TError,CreateCompanyEvidenceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCompanyEvidence>>,
+        TError,
+        CreateCompanyEvidenceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateCompanyEvidenceMutationOptions(options));
+    }
+
+export const getUpdateCompanyEvidenceUrl = (companyEvidenceId: string,) => {
+
+
+
+
+  return `/api/company-evidence/${companyEvidenceId}`
+}
+
+export const updateCompanyEvidence = async (companyEvidenceId: string,
+    companyEvidenceMetadata: CompanyEvidenceMetadata, options?: Parameters<typeof customFetch>[1]): Promise<CompanyEvidence> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CompanyEvidence>(getUpdateCompanyEvidenceUrl(companyEvidenceId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(companyEvidenceMetadata)
+  }
+);}
+
+
+
+
+
+export const getUpdateCompanyEvidenceMutationKey = () => ['updateCompanyEvidence'] as const;
+
+export const getUpdateCompanyEvidenceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompanyEvidence>>, TError,UpdateCompanyEvidenceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCompanyEvidence>>, TError,UpdateCompanyEvidenceMutationVariables, TContext> => {
+
+const mutationKey = getUpdateCompanyEvidenceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCompanyEvidence>>, UpdateCompanyEvidenceMutationVariables> = (props) => {
+          const {companyEvidenceId,data} = props ?? {};
+
+          return  updateCompanyEvidence(companyEvidenceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCompanyEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof updateCompanyEvidence>>>
+    export type UpdateCompanyEvidenceMutationBody = BodyType<CompanyEvidenceMetadata>
+    export type UpdateCompanyEvidenceMutationError = ErrorType<unknown>
+    export type UpdateCompanyEvidenceMutationVariables = {companyEvidenceId: string;data: BodyType<CompanyEvidenceMetadata>}
+
+    export const useUpdateCompanyEvidence = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompanyEvidence>>, TError,UpdateCompanyEvidenceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCompanyEvidence>>,
+        TError,
+        UpdateCompanyEvidenceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateCompanyEvidenceMutationOptions(options));
+    }
+
+export const getDeleteCompanyEvidenceUrl = (companyEvidenceId: string,) => {
+
+
+
+
+  return `/api/company-evidence/${companyEvidenceId}`
+}
+
+export const deleteCompanyEvidence = async (companyEvidenceId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteCompanyEvidenceUrl(companyEvidenceId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteCompanyEvidenceMutationKey = () => ['deleteCompanyEvidence'] as const;
+
+export const getDeleteCompanyEvidenceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCompanyEvidence>>, TError,DeleteCompanyEvidenceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCompanyEvidence>>, TError,DeleteCompanyEvidenceMutationVariables, TContext> => {
+
+const mutationKey = getDeleteCompanyEvidenceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCompanyEvidence>>, DeleteCompanyEvidenceMutationVariables> = (props) => {
+          const {companyEvidenceId} = props ?? {};
+
+          return  deleteCompanyEvidence(companyEvidenceId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCompanyEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCompanyEvidence>>>
+
+    export type DeleteCompanyEvidenceMutationError = ErrorType<unknown>
+    export type DeleteCompanyEvidenceMutationVariables = {companyEvidenceId: string}
+
+    export const useDeleteCompanyEvidence = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCompanyEvidence>>, TError,DeleteCompanyEvidenceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCompanyEvidence>>,
+        TError,
+        DeleteCompanyEvidenceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteCompanyEvidenceMutationOptions(options));
+    }
+
+export const getLinkCompanyEvidenceUrl = (tenderId: string,) => {
+
+
+
+
+  return `/api/tenders/${tenderId}/company-evidence`
+}
+
+export const linkCompanyEvidence = async (tenderId: string,
+    companyEvidenceLink: CompanyEvidenceLink, options?: Parameters<typeof customFetch>[1]): Promise<Evidence> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Evidence>(getLinkCompanyEvidenceUrl(tenderId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(companyEvidenceLink)
+  }
+);}
+
+
+
+
+
+export const getLinkCompanyEvidenceMutationKey = () => ['linkCompanyEvidence'] as const;
+
+export const getLinkCompanyEvidenceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkCompanyEvidence>>, TError,LinkCompanyEvidenceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof linkCompanyEvidence>>, TError,LinkCompanyEvidenceMutationVariables, TContext> => {
+
+const mutationKey = getLinkCompanyEvidenceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof linkCompanyEvidence>>, LinkCompanyEvidenceMutationVariables> = (props) => {
+          const {tenderId,data} = props ?? {};
+
+          return  linkCompanyEvidence(tenderId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LinkCompanyEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof linkCompanyEvidence>>>
+    export type LinkCompanyEvidenceMutationBody = BodyType<CompanyEvidenceLink>
+    export type LinkCompanyEvidenceMutationError = ErrorType<unknown>
+    export type LinkCompanyEvidenceMutationVariables = {tenderId: string;data: BodyType<CompanyEvidenceLink>}
+
+    export const useLinkCompanyEvidence = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkCompanyEvidence>>, TError,LinkCompanyEvidenceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof linkCompanyEvidence>>,
+        TError,
+        LinkCompanyEvidenceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLinkCompanyEvidenceMutationOptions(options));
+    }
+
+export const getReviewEvidenceApplicabilityUrl = (evidenceId: string,) => {
+
+
+
+
+  return `/api/evidence/${evidenceId}/applicability`
+}
+
+export const reviewEvidenceApplicability = async (evidenceId: string,
+    evidenceApplicability: EvidenceApplicability, options?: Parameters<typeof customFetch>[1]): Promise<Evidence> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Evidence>(getReviewEvidenceApplicabilityUrl(evidenceId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(evidenceApplicability)
+  }
+);}
+
+
+
+
+
+export const getReviewEvidenceApplicabilityMutationKey = () => ['reviewEvidenceApplicability'] as const;
+
+export const getReviewEvidenceApplicabilityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewEvidenceApplicability>>, TError,ReviewEvidenceApplicabilityMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewEvidenceApplicability>>, TError,ReviewEvidenceApplicabilityMutationVariables, TContext> => {
+
+const mutationKey = getReviewEvidenceApplicabilityMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewEvidenceApplicability>>, ReviewEvidenceApplicabilityMutationVariables> = (props) => {
+          const {evidenceId,data} = props ?? {};
+
+          return  reviewEvidenceApplicability(evidenceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewEvidenceApplicabilityMutationResult = NonNullable<Awaited<ReturnType<typeof reviewEvidenceApplicability>>>
+    export type ReviewEvidenceApplicabilityMutationBody = BodyType<EvidenceApplicability>
+    export type ReviewEvidenceApplicabilityMutationError = ErrorType<unknown>
+    export type ReviewEvidenceApplicabilityMutationVariables = {evidenceId: string;data: BodyType<EvidenceApplicability>}
+
+    export const useReviewEvidenceApplicability = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewEvidenceApplicability>>, TError,ReviewEvidenceApplicabilityMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewEvidenceApplicability>>,
+        TError,
+        ReviewEvidenceApplicabilityMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReviewEvidenceApplicabilityMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 

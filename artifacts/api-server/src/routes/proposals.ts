@@ -12,6 +12,7 @@ import { evidenceContext } from "../lib/documents";
 import { requirementsInFlight, sameTenderSources } from "../lib/tender-requirements";
 import { requirementProposalContext } from "../lib/requirement-proposal-context";
 import { ensureExtraction, draftingText } from "../lib/document-extractions";
+import { resolveTenderEvidence } from "../lib/company-evidence";
 
 const router: IRouter = Router();
 const generating = new Set<string>();
@@ -36,10 +37,17 @@ router.post("/tenders/:tenderId/proposals/generate", async (req, res): Promise<v
   if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
   if (generating.has(ownerId)) { res.status(429).json({ error: "A proposal draft is already being generated. Please wait." }); return; }
   const files = await db.select().from(evidenceTable).where(eq(evidenceTable.tenderId, tender.id));
+  const resolved = await resolveTenderEvidence(files, tender);
+  // Invalid or unreviewed reusable evidence cannot establish current bidder claims.
+  const usable = resolved.filter(f => !(f.companyEvidenceId || f.companySnapshot) || (f.applicability === "applicable" && !f.warnings.some(w => !w.startsWith("Expiry date not recorded"))));
   const requirementRows = await db.select().from(requirementItemsTable).where(eq(requirementItemsTable.tenderId, tender.id));
+  const blockedLinked = resolved.filter(f => !usable.includes(f) && requirementRows.some(r => r.evidenceIds.includes(f.id)));
+  if (blockedLinked.length) {
+    res.status(409).json({ error: `Review or replace invalid company evidence linked to requirements: ${blockedLinked.map(f => `${f.name}: ${f.warnings.join("; ")}`).join("\n")}` }); return;
+  }
   let requirementContext: ReturnType<typeof requirementProposalContext> | undefined;
   try {
-    if (requirementRows.length) requirementContext = requirementProposalContext(requirementRows, files, tender.requirementsExtraction?.id ?? null);
+    if (requirementRows.length) requirementContext = requirementProposalContext(requirementRows, usable, tender.requirementsExtraction?.id ?? null);
   } catch (e) { res.status(409).json({ error: e instanceof Error ? e.message : "Review requirements and supplier choices first." }); return; }
   if (requirementsInFlight.has(ownerId)) { res.status(409).json({ error: "Tender requirements are still being extracted. Wait and review them before generating." }); return; }
   if (tender.requirementsExtraction && ((!requirementRows.length && !tender.requirementsExtraction.reviewedAt) || !sameTenderSources(files, tender.requirementsExtraction))) {
@@ -58,10 +66,11 @@ router.post("/tenders/:tenderId/proposals/generate", async (req, res): Promise<v
     // Avoid re-reading/OCR-billing the same RFP and exceeding evidence limits on long tenders.
     const linkedIds = new Set(requirementRows.flatMap(r => r.evidenceIds));
     if (requirementRows.length) tender.requirements = "";
-    const documents = await evidenceContext(requirementRows.length ? files.filter(f => f.category !== "tender_rfp" && linkedIds.has(f.id)) :
-      tender.requirementsExtraction?.reviewedAt ? files.filter(f => f.category !== "tender_rfp") : files);
+    const documents = await evidenceContext(requirementRows.length ? usable.filter(f => f.category !== "tender_rfp" && linkedIds.has(f.id)) :
+      tender.requirementsExtraction?.reviewedAt ? usable.filter(f => f.category !== "tender_rfp") : usable);
+    const omittedEvidence = resolved.filter(f => !usable.includes(f)).map(f => `${f.name}: ${f.warnings.join("; ")}`).join("\n");
     const structuredContext = JSON.stringify(requirementContext ? { technical: requirementContext.technical, commercial: requirementContext.commercial } : {});
-    const historicalGuidance = (await Promise.all(library.map(async entry => {
+    const historicalGuidance = `UNUSABLE COMPANY EVIDENCE (do not claim eligibility from these; show missing-evidence placeholders):\n${omittedEvidence || "None"}\n\n` + (await Promise.all(library.map(async entry => {
       const read = async (path: string | null, source: string) => path ? draftingText(await ensureExtraction(path, ownerId), entry.title) : source;
       const tenderText = await read(entry.tenderObjectPath, entry.tenderText);
       const technicalText = await read(entry.technicalObjectPath, entry.technicalText);

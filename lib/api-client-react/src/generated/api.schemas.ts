@@ -582,6 +582,9 @@ export const EvidenceInputCategory = {
   company_profile: 'company_profile',
   certification: 'certification',
   cv_reference: 'cv_reference',
+  staff_cv: 'staff_cv',
+  project_reference: 'project_reference',
+  oem_authorization: 'oem_authorization',
   technical_bom: 'technical_bom',
   vendor_quote: 'vendor_quote',
   oem_datasheet: 'oem_datasheet',
@@ -601,10 +604,116 @@ export interface EvidenceInput {
   notes?: string;
 }
 
-export type Evidence = EvidenceInput & {
+export type EvidenceApplicabilityProperty = typeof EvidenceApplicabilityProperty[keyof typeof EvidenceApplicabilityProperty];
+
+
+export const EvidenceApplicabilityProperty = {
+  pending: 'pending',
+  applicable: 'applicable',
+  not_applicable: 'not_applicable',
+} as const;
+
+export type Evidence = EvidenceInput & ({
   id: string;
   uploadedAt: string;
+  /** @nullable */
+  companyEvidenceId?: string | null;
+  applicability?: EvidenceApplicabilityProperty;
+  /**
+     * @nullable
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  issueDate?: string | null;
+  /**
+     * @nullable
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  expiryDate?: string | null;
+  warnings?: string[];
+});
+
+export type CompanyEvidenceMetadataCategory = typeof CompanyEvidenceMetadataCategory[keyof typeof CompanyEvidenceMetadataCategory];
+
+
+export const CompanyEvidenceMetadataCategory = {
+  company_profile: 'company_profile',
+  certification: 'certification',
+  oem_authorization: 'oem_authorization',
+  staff_cv: 'staff_cv',
+  project_reference: 'project_reference',
+} as const;
+
+/**
+ * @nullable
+ */
+export type CompanyEvidenceMetadataTenderCategory = typeof CompanyEvidenceMetadataTenderCategory[keyof typeof CompanyEvidenceMetadataTenderCategory] | null;
+
+
+export const CompanyEvidenceMetadataTenderCategory = {
+  hardware: 'hardware',
+  networking: 'networking',
+  software: 'software',
+  services: 'services',
+  mixed: 'mixed',
+} as const;
+
+export interface CompanyEvidenceMetadata {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  title: string;
+  category: CompanyEvidenceMetadataCategory;
+  /** @maxLength 10000 */
+  notes: string;
+  /**
+     * @nullable
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  issueDate: string | null;
+  /**
+     * @nullable
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  expiryDate: string | null;
+  /** @nullable */
+  tenderCategory: CompanyEvidenceMetadataTenderCategory;
+  /** @maxLength 200 */
+  agency: string;
+  /** @maxLength 200 */
+  tenderReference: string;
+}
+
+export type CompanyEvidenceInput = CompanyEvidenceMetadata & {
+  /** @minLength 1 */
+  objectPath: string;
 };
+
+export type CompanyEvidence = CompanyEvidenceInput & {
+  id: string;
+  name: string;
+  contentType: string;
+  size: number;
+  createdAt: string;
+  warnings: string[];
+};
+
+export interface CompanyEvidenceLink {
+  companyEvidenceId: string;
+}
+
+export type EvidenceApplicabilityApplicability = typeof EvidenceApplicabilityApplicability[keyof typeof EvidenceApplicabilityApplicability];
+
+
+export const EvidenceApplicabilityApplicability = {
+  pending: 'pending',
+  applicable: 'applicable',
+  not_applicable: 'not_applicable',
+} as const;
+
+export interface EvidenceApplicability {
+  applicability: EvidenceApplicabilityApplicability;
+}
 
 export interface VendorSourceInput {
   /** @minLength 1 */

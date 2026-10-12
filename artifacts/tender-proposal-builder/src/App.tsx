@@ -8,6 +8,7 @@ import {
   useReviewVendorSource, useListProposals, useGenerateProposalPair, useUpdateProposal, useRequestUploadUrl,
   useResearchVendorSource, useExtractTenderRequirements,
   useListRequirementItems, getListRequirementItemsQueryKey,
+  useListCompanyEvidence, useLinkCompanyEvidence, useReviewEvidenceApplicability,
   getGetDashboardSummaryQueryKey, getListTendersQueryKey, getGetTenderQueryKey, getListTenderEvidenceQueryKey,
   getListVendorSourcesQueryKey, getListProposalsQueryKey,
 } from '@workspace/api-client-react';
@@ -29,12 +30,13 @@ import LibraryEntryPage from '@/pages/library-entry';
 import ProposalEditor from '@/pages/proposal-editor';
 import { RequirementsPanel } from '@/components/requirements-panel';
 import { DocumentReview, OCR_NOTE } from '@/components/document-review';
+import CompanyEvidencePage, { useCompanyEvidenceRefresh } from '@/pages/company-evidence';
 
 const queryClient = new QueryClient();
 const categories = [
   ['tender_rfp', 'Tender / RFP'], ['previous_proposal', 'Previous proposal'], ['company_profile', 'Company profile'],
   ['certification', 'Certifications'], ['cv_reference', 'CV / project references'], ['technical_bom', 'Bill of materials'],
-  ['vendor_quote', 'Vendor quote'], ['oem_datasheet', 'OEM datasheet'], ['other', 'Other'],
+  ['vendor_quote', 'Vendor quote'], ['oem_datasheet', 'OEM datasheet'], ['other', 'Other'], ['staff_cv', 'Staff CV'], ['oem_authorization', 'OEM authorization'], ['project_reference', 'Project reference'],
 ] as const;
 type DialogName = 'tender' | 'source' | 'research' | 'generate' | null;
 
@@ -64,6 +66,7 @@ function AppShell({ children }: { children: ReactNode }) {
       <div className="px-4"><p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[.18em] text-sidebar-foreground/40">Workspace</p>
         <Link href="/" onClick={() => setMobileMenu(false)} className={cn('flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition', location === '/' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/70')} data-testid="link-dashboard"><Layers3 size={17}/>Tenders</Link>
         <Link href="/library" onClick={() => setMobileMenu(false)} className={cn('mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition', location.startsWith('/library') ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/70')} data-testid="link-library"><Archive size={17}/>Proposal library</Link>
+        <Link href="/company-evidence" onClick={() => setMobileMenu(false)} className={cn('mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition', location.startsWith('/company-evidence') ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/70')} data-testid="link-company-evidence"><ShieldCheck size={17}/>Company evidence</Link>
       </div>
       <div className="mx-6 mt-8 border-t border-sidebar-border"/>
       <div className="mx-5 mt-5 rounded-xl border border-sidebar-border bg-sidebar-accent/40 p-4">
@@ -200,18 +203,37 @@ function TenderWorkspace() {
   </div>;
 }
 function EvidencePanel({ tenderId, evidence, loading, failed, onRetry, onChanged, onTenderUploaded }: { tenderId: string; evidence: Evidence[]; loading: boolean; failed: boolean; onRetry: () => void; onChanged: () => void; onTenderUploaded: () => void }) {
-  const [uploadOpen, setUploadOpen] = useState(false); const remove = useDeleteEvidence(); const qc = useQueryClient();
+  const [uploadOpen, setUploadOpen] = useState(false); const remove = useDeleteEvidence(); const qc = useQueryClient(); const [pickOpen, setPickOpen] = useState(false); const review = useReviewEvidenceApplicability(); const [reviewError, setReviewError] = useState(''); const refreshCompany = useCompanyEvidenceRefresh();
   if (loading) return <PageSkeleton/>; if (failed) return <QueryError retry={onRetry}/>;
-  return <section><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-primary">Source documents</p><h2 className="mt-1 font-[Manrope] text-xl font-bold">Evidence library</h2><p className="mt-1 text-xs text-muted-foreground">Files and notes remain connected to this tender record.</p></div><Button onClick={() => setUploadOpen(true)} data-testid="button-upload-evidence"><Upload size={16}/>Add evidence</Button></div>
+  return <section><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-primary">Source documents</p><h2 className="mt-1 font-[Manrope] text-xl font-bold">Evidence library</h2><p className="mt-1 text-xs text-muted-foreground">Files and notes remain connected to this tender record.</p></div><Button onClick={() => setUploadOpen(true)} data-testid="button-upload-evidence"><Upload size={16}/>Add evidence</Button><Button variant="secondary" onClick={() => setPickOpen(true)} data-testid="button-reuse-evidence"><FolderOpen size={16}/>Reuse from library</Button></div>{reviewError && <p className="mt-3 text-sm text-destructive">{reviewError}</p>}
     {!evidence.length ? <div className="mt-5"><EmptyState title="No evidence attached yet" body="Upload the RFP, company credentials, project references, quotes or OEM datasheets that support this response." icon={<Upload size={20}/>}/></div>
       : <div className="mt-5 grid gap-3 md:grid-cols-2">{evidence.map(item => <div key={item.id} className="rounded-xl border border-border bg-card p-4" data-testid={`card-evidence-${item.id}`}>
-        <div className="flex items-start gap-3"><div className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-primary"><FileText size={18}/></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{item.name}</p><div className="mt-1.5 flex flex-wrap items-center gap-2"><Pill>{categoryName(item.category)}</Pill><span className="mono text-[10px] text-muted-foreground">{(item.size / 1024 / 1024).toFixed(1)} MB</span></div></div><button onClick={() => { if (window.confirm(`Remove evidence “${item.name}” from this tender?`)) remove.mutate({ evidenceId: item.id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getListTenderEvidenceQueryKey(tenderId) }); onChanged(); } }); }} aria-label={`Remove ${item.name}`} className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" data-testid={`button-delete-evidence-${item.id}`}><Trash2 size={15}/></button></div>
+        <div className="flex items-start gap-3"><div className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-primary"><FileText size={18}/></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{item.name}</p><div className="mt-1.5 flex flex-wrap items-center gap-2"><Pill>{categoryName(item.category)}</Pill><span className="mono text-[10px] text-muted-foreground">{(item.size / 1024 / 1024).toFixed(1)} MB</span></div></div><button disabled={remove.isPending} onClick={() => { if (window.confirm(`Remove evidence “${item.name}” from this tender?`)) remove.mutate({ evidenceId: item.id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getListTenderEvidenceQueryKey(tenderId) }); onChanged(); }, onError: e => setReviewError(errorText(e)) }); }} aria-label={`Remove ${item.name}`} className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" data-testid={`button-delete-evidence-${item.id}`}><Trash2 size={15}/></button></div>
         {item.notes && <p className="mt-3 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">{item.notes}</p>}
+        {(item.companyEvidenceId || (item.warnings?.length ?? 0) > 0 || item.issueDate || item.expiryDate) && (() => { const blocked = (item.warnings ?? []).some(w => /expired|expires before|not yet issued|^not applicable:/i.test(w)); const app = item.applicability ?? 'pending'; return <div className="mt-3 border-t border-border pt-3 text-xs">
+          <p className="mono text-[11px] text-muted-foreground">Issued {formatDate(item.issueDate)} · Expires {formatDate(item.expiryDate)}</p>
+          {(item.warnings ?? []).map(w => <p key={w} className="mt-2 text-amber-800">{w}</p>)}
+          <label className="mt-2 grid gap-1 font-semibold">Applicability to this tender<select className={inputClass} value={app} disabled={review.isPending} onChange={e => { setReviewError(''); review.mutate({ evidenceId: item.id, data: { applicability: e.target.value as 'pending' | 'applicable' | 'not_applicable' } }, { onSuccess: () => { refreshCompany([tenderId]); onChanged(); }, onError: err => setReviewError(errorText(err)) }); }} data-testid={`select-applicability-${item.id}`}><option value="pending">Pending review</option><option value="applicable" disabled={blocked}>Applicable</option><option value="not_applicable">Not applicable</option></select></label>
+          {blocked && <p className="mt-1 text-muted-foreground">Expired or mismatched evidence cannot be marked applicable.</p>}
+          {app === 'pending' && <p className="mt-1 text-amber-800">Pending reused evidence cannot support current claims.</p>}
+        </div>; })()}
         <DocumentReview path={item.objectPath}/>
         <p className="mt-3 text-[10px] text-muted-foreground">Added {formatDate(item.uploadedAt)}</p>
       </div>)}</div>}
     {uploadOpen && <EvidenceDialog tenderId={tenderId} close={() => setUploadOpen(false)} onDone={onChanged} onTenderUploaded={onTenderUploaded}/>}
+    {pickOpen && <ReusePicker tenderId={tenderId} linked={evidence.map(e => e.companyEvidenceId).filter(Boolean) as string[]} close={() => setPickOpen(false)} onDone={onChanged}/>}
   </section>;
+}
+
+function ReusePicker({ tenderId, linked, close, onDone }: { tenderId: string; linked: string[]; close: () => void; onDone: () => void }) {
+  const list = useListCompanyEvidence(); const link = useLinkCompanyEvidence(); const refresh = useCompanyEvidenceRefresh(); const [error, setError] = useState(''); const [search, setSearch] = useState('');
+  const items = (list.data ?? []).filter(i => `${i.title} ${i.agency}`.toLowerCase().includes(search.toLowerCase()));
+  return <Dialog wide title="Reuse company evidence" description="Linked evidence starts as pending review for this tender." onClose={close}>
+    <input className={inputClass} placeholder="Search library" aria-label="Search library" value={search} onChange={e => setSearch(e.target.value)} data-testid="input-search-picker"/>
+    {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+    <div className="mt-4 grid gap-2">{list.isLoading ? <PageSkeleton/> : list.isError ? <QueryError retry={() => void list.refetch()}/> : !items.length ? <EmptyState title="Nothing to reuse" body="Add evidence on the Company evidence page first."/> : items.map(i => <div key={i.id} className="flex items-center gap-3 rounded-lg border border-border p-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{i.title}</p><p className="mono text-[11px] text-muted-foreground">Expires {formatDate(i.expiryDate)}</p>{i.warnings.map(w => <p key={w} className="text-xs text-amber-800">{w}</p>)}</div>
+      <Button variant="secondary" disabled={link.isPending || linked.includes(i.id)} onClick={() => { setError(''); link.mutate({ tenderId, data: { companyEvidenceId: i.id } }, { onSuccess: () => { refresh([tenderId]); onDone(); }, onError: e => setError(errorText(e)) }); }} data-testid={`button-link-${i.id}`}>{linked.includes(i.id) ? 'Linked' : link.isPending ? 'Linking…' : 'Link'}</Button></div>)}</div>
+  </Dialog>;
 }
 function EvidenceDialog({ tenderId, close, onDone, onTenderUploaded }: { tenderId: string; close: () => void; onDone: () => void; onTenderUploaded: () => void }) {
   const uploadUrl = useRequestUploadUrl(); const add = useAddTenderEvidence(); const qc = useQueryClient();
@@ -341,7 +363,7 @@ function ProposalPanel({ tender, proposals, loading, failed, onRetry, onGenerate
 }
 function Router() {
   const [location] = useLocation();
-  return <AppShell><ErrorBoundary resetKey={location}><Switch><Route path="/" component={Dashboard}/><Route path="/tenders/:tenderId" component={TenderWorkspace}/><Route path="/library" component={LibraryPage}/><Route path="/library/:entryId" component={LibraryEntryPage}/><Route path="/proposals/:proposalId" component={ProposalEditor}/><Route component={NotFound}/></Switch></ErrorBoundary></AppShell>;
+  return <AppShell><ErrorBoundary resetKey={location}><Switch><Route path="/" component={Dashboard}/><Route path="/tenders/:tenderId" component={TenderWorkspace}/><Route path="/company-evidence" component={CompanyEvidencePage}/><Route path="/library" component={LibraryPage}/><Route path="/library/:entryId" component={LibraryEntryPage}/><Route path="/proposals/:proposalId" component={ProposalEditor}/><Route component={NotFound}/></Switch></ErrorBoundary></AppShell>;
 }
 function App() {
   return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router/></WouterRouter><Toaster/></TooltipProvider></QueryClientProvider>;

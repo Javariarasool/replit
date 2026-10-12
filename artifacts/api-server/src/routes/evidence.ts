@@ -13,6 +13,7 @@ import { ObjectStorageService } from "../lib/objectStorage";
 import { researchSource } from "../lib/vendor-research";
 import { removeUnusedUpload } from "../lib/upload-cleanup";
 import { ensureExtraction } from "../lib/document-extractions";
+import { resolveTenderEvidence } from "../lib/company-evidence";
 
 const router: IRouter = Router();
 const storage = new ObjectStorageService();
@@ -22,9 +23,10 @@ router.use(requireAuth);
 router.get("/tenders/:tenderId/evidence", async (req, res): Promise<void> => {
   const params = ListTenderEvidenceParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid tender identifier." }); return; }
-  if (!await ownedTender(params.data.tenderId, req.user!.id)) { res.status(404).json({ error: "Tender not found." }); return; }
+  const tender = await ownedTender(params.data.tenderId, req.user!.id);
+  if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
   const rows = await db.select().from(evidenceTable).where(eq(evidenceTable.tenderId, params.data.tenderId)).orderBy(desc(evidenceTable.uploadedAt));
-  res.json(ListTenderEvidenceResponse.parse(rows));
+  res.json(ListTenderEvidenceResponse.parse(await resolveTenderEvidence(rows, tender)));
 });
 
 router.post("/tenders/:tenderId/evidence", async (req, res): Promise<void> => {

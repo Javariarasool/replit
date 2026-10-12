@@ -21,6 +21,91 @@ tags:
   - name: storage
     description: Secure document upload endpoints.
 paths:
+  /company-evidence:
+    get:
+      operationId: listCompanyEvidence
+      responses:
+        "200":
+          description: Private reusable evidence
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CompanyEvidence" }
+    post:
+      operationId: createCompanyEvidence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanyEvidenceInput" }
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CompanyEvidence" }
+  /company-evidence/{companyEvidenceId}:
+    parameters:
+      - name: companyEvidenceId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: updateCompanyEvidence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanyEvidenceMetadata" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CompanyEvidence" }
+    delete:
+      operationId: deleteCompanyEvidence
+      responses:
+        "204": { description: Removed from library; tender copies retained }
+  /tenders/{tenderId}/company-evidence:
+    parameters:
+      - name: tenderId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: linkCompanyEvidence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanyEvidenceLink" }
+      responses:
+        "201":
+          description: Linked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Evidence" }
+  /evidence/{evidenceId}/applicability:
+    parameters:
+      - name: evidenceId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: reviewEvidenceApplicability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EvidenceApplicability" }
+      responses:
+        "200":
+          description: Reviewed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Evidence" }
   /healthz:
     get:
       operationId: healthCheck
@@ -1017,7 +1102,7 @@ components:
         name: { type: string, minLength: 1 }
         category:
           type: string
-          enum: [tender_rfp, previous_proposal, company_profile, certification, cv_reference, technical_bom, vendor_quote, oem_datasheet, other]
+          enum: [tender_rfp, previous_proposal, company_profile, certification, cv_reference, staff_cv, project_reference, oem_authorization, technical_bom, vendor_quote, oem_datasheet, other]
         objectPath: { type: string, minLength: 1 }
         contentType: { type: string, minLength: 1 }
         size: { type: integer, minimum: 1 }
@@ -1030,6 +1115,56 @@ components:
           properties:
             id: { type: string, format: uuid }
             uploadedAt: { type: string, format: date-time }
+            companyEvidenceId: { type: [string, "null"], format: uuid }
+            applicability: { type: string, enum: [pending, applicable, not_applicable] }
+            issueDate: { type: [string, "null"], pattern: '^\d{4}-\d{2}-\d{2}$' }
+            expiryDate: { type: [string, "null"], pattern: '^\d{4}-\d{2}-\d{2}$' }
+            warnings:
+              type: array
+              items: { type: string }
+    CompanyEvidenceMetadata:
+      type: object
+      required: [title, category, notes, issueDate, expiryDate, tenderCategory, agency, tenderReference]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        category: { type: string, enum: [company_profile, certification, oem_authorization, staff_cv, project_reference] }
+        notes: { type: string, maxLength: 10000 }
+        issueDate: { type: [string, "null"], pattern: '^\d{4}-\d{2}-\d{2}$' }
+        expiryDate: { type: [string, "null"], pattern: '^\d{4}-\d{2}-\d{2}$' }
+        tenderCategory: { type: [string, "null"], enum: [hardware, networking, software, services, mixed, null] }
+        agency: { type: string, maxLength: 200 }
+        tenderReference: { type: string, maxLength: 200 }
+    CompanyEvidenceInput:
+      allOf:
+        - $ref: "#/components/schemas/CompanyEvidenceMetadata"
+        - type: object
+          required: [objectPath]
+          properties:
+            objectPath: { type: string, minLength: 1 }
+    CompanyEvidence:
+      allOf:
+        - $ref: "#/components/schemas/CompanyEvidenceInput"
+        - type: object
+          required: [id, name, contentType, size, createdAt, warnings]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            contentType: { type: string }
+            size: { type: integer }
+            createdAt: { type: string, format: date-time }
+            warnings:
+              type: array
+              items: { type: string }
+    CompanyEvidenceLink:
+      type: object
+      required: [companyEvidenceId]
+      properties:
+        companyEvidenceId: { type: string, format: uuid }
+    EvidenceApplicability:
+      type: object
+      required: [applicability]
+      properties:
+        applicability: { type: string, enum: [pending, applicable, not_applicable] }
     VendorSourceInput:
       type: object
       required: [manufacturer, product, claim, sourceUrl]

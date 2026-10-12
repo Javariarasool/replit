@@ -5,9 +5,24 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { EvidenceApplicabilityProperty } from './evidenceApplicabilityProperty';
 import type { EvidenceInput } from './evidenceInput';
 
-export type Evidence = EvidenceInput & {
+export type Evidence = EvidenceInput & ({
   id: string;
   uploadedAt: Date;
-};
+  /** @nullable */
+  companyEvidenceId?: string | null;
+  applicability?: EvidenceApplicabilityProperty;
+  /**
+     * @nullable
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  issueDate?: string | null;
+  /**
+     * @nullable
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  expiryDate?: string | null;
+  warnings?: string[];
+});

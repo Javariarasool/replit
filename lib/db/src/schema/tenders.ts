@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 import { usersTable } from "./auth";
+import { companyEvidenceTable } from "./company-evidence";
 
 export interface RequirementsExtraction {
   id: string;
@@ -64,11 +65,17 @@ export const evidenceTable = pgTable(
     contentType: text("content_type").notNull(),
     size: integer("size").notNull(),
     notes: text("notes").notNull().default(""),
+    companyEvidenceId: uuid("company_evidence_id").references(() => companyEvidenceTable.id, { onDelete: "set null" }),
+    applicability: text("applicability").notNull().default("pending"),
+    companySnapshot: jsonb("company_snapshot").$type<{
+      issueDate: string | null; expiryDate: string | null; tenderCategory: string | null;
+      agency: string; tenderReference: string; notes: string;
+    }>(),
     uploadedAt: timestamp("uploaded_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (table) => [uniqueIndex("tender_evidence_object_path_idx").on(table.objectPath)],
+  (table) => [uniqueIndex("tender_evidence_tender_object_idx").on(table.tenderId, table.objectPath)],
 );
 
 export const vendorSourcesTable = pgTable("vendor_sources", {

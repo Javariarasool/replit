@@ -22,3 +22,4 @@ export * from "./tenders";
 export * from "./uploads";
 export * from "./proposal-library";
 export * from "./requirement-items";
+export * from "./company-evidence";

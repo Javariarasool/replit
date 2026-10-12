@@ -8,6 +8,237 @@
 import * as zod from 'zod';
 
 
+export const listCompanyEvidenceResponseOneOneTitleMax = 200;
+
+export const listCompanyEvidenceResponseOneOneNotesMax = 10000;
+
+export const listCompanyEvidenceResponseOneOneIssueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const listCompanyEvidenceResponseOneOneExpiryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const listCompanyEvidenceResponseOneOneAgencyMax = 200;
+
+export const listCompanyEvidenceResponseOneOneTenderReferenceMax = 200;
+
+
+
+
+export const ListCompanyEvidenceResponseItem = zod.object({
+  "title": zod.string().min(1).max(listCompanyEvidenceResponseOneOneTitleMax),
+  "category": zod.enum(['company_profile', 'certification', 'oem_authorization', 'staff_cv', 'project_reference']),
+  "notes": zod.string().max(listCompanyEvidenceResponseOneOneNotesMax),
+  "issueDate": zod.string().regex(listCompanyEvidenceResponseOneOneIssueDateRegExp).nullable(),
+  "expiryDate": zod.string().regex(listCompanyEvidenceResponseOneOneExpiryDateRegExp).nullable(),
+  "tenderCategory": zod.union([zod.literal('hardware'),zod.literal('networking'),zod.literal('software'),zod.literal('services'),zod.literal('mixed'),zod.literal(null)]).nullable(),
+  "agency": zod.string().max(listCompanyEvidenceResponseOneOneAgencyMax),
+  "tenderReference": zod.string().max(listCompanyEvidenceResponseOneOneTenderReferenceMax)
+}).and(zod.object({
+  "objectPath": zod.string().min(1)
+})).and(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "warnings": zod.array(zod.string())
+}))
+export const ListCompanyEvidenceResponse = zod.array(ListCompanyEvidenceResponseItem)
+
+
+export const createCompanyEvidenceBodyOneTitleMax = 200;
+
+export const createCompanyEvidenceBodyOneNotesMax = 10000;
+
+export const createCompanyEvidenceBodyOneIssueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createCompanyEvidenceBodyOneExpiryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createCompanyEvidenceBodyOneAgencyMax = 200;
+
+export const createCompanyEvidenceBodyOneTenderReferenceMax = 200;
+
+
+
+
+export const CreateCompanyEvidenceBody = zod.object({
+  "title": zod.string().min(1).max(createCompanyEvidenceBodyOneTitleMax),
+  "category": zod.enum(['company_profile', 'certification', 'oem_authorization', 'staff_cv', 'project_reference']),
+  "notes": zod.string().max(createCompanyEvidenceBodyOneNotesMax),
+  "issueDate": zod.string().regex(createCompanyEvidenceBodyOneIssueDateRegExp).nullable(),
+  "expiryDate": zod.string().regex(createCompanyEvidenceBodyOneExpiryDateRegExp).nullable(),
+  "tenderCategory": zod.union([zod.literal('hardware'),zod.literal('networking'),zod.literal('software'),zod.literal('services'),zod.literal('mixed'),zod.literal(null)]).nullable(),
+  "agency": zod.string().max(createCompanyEvidenceBodyOneAgencyMax),
+  "tenderReference": zod.string().max(createCompanyEvidenceBodyOneTenderReferenceMax)
+}).and(zod.object({
+  "objectPath": zod.string().min(1)
+}))
+
+export const createCompanyEvidenceResponseOneOneTitleMax = 200;
+
+export const createCompanyEvidenceResponseOneOneNotesMax = 10000;
+
+export const createCompanyEvidenceResponseOneOneIssueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createCompanyEvidenceResponseOneOneExpiryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createCompanyEvidenceResponseOneOneAgencyMax = 200;
+
+export const createCompanyEvidenceResponseOneOneTenderReferenceMax = 200;
+
+
+
+
+export const CreateCompanyEvidenceResponse = zod.object({
+  "title": zod.string().min(1).max(createCompanyEvidenceResponseOneOneTitleMax),
+  "category": zod.enum(['company_profile', 'certification', 'oem_authorization', 'staff_cv', 'project_reference']),
+  "notes": zod.string().max(createCompanyEvidenceResponseOneOneNotesMax),
+  "issueDate": zod.string().regex(createCompanyEvidenceResponseOneOneIssueDateRegExp).nullable(),
+  "expiryDate": zod.string().regex(createCompanyEvidenceResponseOneOneExpiryDateRegExp).nullable(),
+  "tenderCategory": zod.union([zod.literal('hardware'),zod.literal('networking'),zod.literal('software'),zod.literal('services'),zod.literal('mixed'),zod.literal(null)]).nullable(),
+  "agency": zod.string().max(createCompanyEvidenceResponseOneOneAgencyMax),
+  "tenderReference": zod.string().max(createCompanyEvidenceResponseOneOneTenderReferenceMax)
+}).and(zod.object({
+  "objectPath": zod.string().min(1)
+})).and(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "warnings": zod.array(zod.string())
+}))
+
+
+export const UpdateCompanyEvidenceParams = zod.object({
+  "companyEvidenceId": zod.coerce.string().uuid()
+})
+
+export const updateCompanyEvidenceBodyTitleMax = 200;
+
+export const updateCompanyEvidenceBodyNotesMax = 10000;
+
+export const updateCompanyEvidenceBodyIssueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateCompanyEvidenceBodyExpiryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateCompanyEvidenceBodyAgencyMax = 200;
+
+export const updateCompanyEvidenceBodyTenderReferenceMax = 200;
+
+
+
+export const UpdateCompanyEvidenceBody = zod.object({
+  "title": zod.string().min(1).max(updateCompanyEvidenceBodyTitleMax),
+  "category": zod.enum(['company_profile', 'certification', 'oem_authorization', 'staff_cv', 'project_reference']),
+  "notes": zod.string().max(updateCompanyEvidenceBodyNotesMax),
+  "issueDate": zod.string().regex(updateCompanyEvidenceBodyIssueDateRegExp).nullable(),
+  "expiryDate": zod.string().regex(updateCompanyEvidenceBodyExpiryDateRegExp).nullable(),
+  "tenderCategory": zod.union([zod.literal('hardware'),zod.literal('networking'),zod.literal('software'),zod.literal('services'),zod.literal('mixed'),zod.literal(null)]).nullable(),
+  "agency": zod.string().max(updateCompanyEvidenceBodyAgencyMax),
+  "tenderReference": zod.string().max(updateCompanyEvidenceBodyTenderReferenceMax)
+})
+
+export const updateCompanyEvidenceResponseOneOneTitleMax = 200;
+
+export const updateCompanyEvidenceResponseOneOneNotesMax = 10000;
+
+export const updateCompanyEvidenceResponseOneOneIssueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateCompanyEvidenceResponseOneOneExpiryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateCompanyEvidenceResponseOneOneAgencyMax = 200;
+
+export const updateCompanyEvidenceResponseOneOneTenderReferenceMax = 200;
+
+
+
+
+export const UpdateCompanyEvidenceResponse = zod.object({
+  "title": zod.string().min(1).max(updateCompanyEvidenceResponseOneOneTitleMax),
+  "category": zod.enum(['company_profile', 'certification', 'oem_authorization', 'staff_cv', 'project_reference']),
+  "notes": zod.string().max(updateCompanyEvidenceResponseOneOneNotesMax),
+  "issueDate": zod.string().regex(updateCompanyEvidenceResponseOneOneIssueDateRegExp).nullable(),
+  "expiryDate": zod.string().regex(updateCompanyEvidenceResponseOneOneExpiryDateRegExp).nullable(),
+  "tenderCategory": zod.union([zod.literal('hardware'),zod.literal('networking'),zod.literal('software'),zod.literal('services'),zod.literal('mixed'),zod.literal(null)]).nullable(),
+  "agency": zod.string().max(updateCompanyEvidenceResponseOneOneAgencyMax),
+  "tenderReference": zod.string().max(updateCompanyEvidenceResponseOneOneTenderReferenceMax)
+}).and(zod.object({
+  "objectPath": zod.string().min(1)
+})).and(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "warnings": zod.array(zod.string())
+}))
+
+
+export const DeleteCompanyEvidenceParams = zod.object({
+  "companyEvidenceId": zod.coerce.string().uuid()
+})
+
+export const DeleteCompanyEvidenceResponse = zod.void()
+
+
+export const LinkCompanyEvidenceParams = zod.object({
+  "tenderId": zod.coerce.string().uuid()
+})
+
+export const LinkCompanyEvidenceBody = zod.object({
+  "companyEvidenceId": zod.string().uuid()
+})
+
+
+
+
+
+export const linkCompanyEvidenceResponseTwoIssueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const linkCompanyEvidenceResponseTwoExpiryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const LinkCompanyEvidenceResponse = zod.object({
+  "name": zod.string().min(1),
+  "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'staff_cv', 'project_reference', 'oem_authorization', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
+  "objectPath": zod.string().min(1),
+  "contentType": zod.string().min(1),
+  "size": zod.number().int().min(1),
+  "notes": zod.string().optional()
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "uploadedAt": zod.coerce.date(),
+  "companyEvidenceId": zod.string().uuid().nullish(),
+  "applicability": zod.enum(['pending', 'applicable', 'not_applicable']).optional(),
+  "issueDate": zod.string().regex(linkCompanyEvidenceResponseTwoIssueDateRegExp).nullish(),
+  "expiryDate": zod.string().regex(linkCompanyEvidenceResponseTwoExpiryDateRegExp).nullish(),
+  "warnings": zod.array(zod.string()).optional()
+}))
+
+
+export const ReviewEvidenceApplicabilityParams = zod.object({
+  "evidenceId": zod.coerce.string().uuid()
+})
+
+export const ReviewEvidenceApplicabilityBody = zod.object({
+  "applicability": zod.enum(['pending', 'applicable', 'not_applicable'])
+})
+
+
+
+
+
+export const reviewEvidenceApplicabilityResponseTwoIssueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const reviewEvidenceApplicabilityResponseTwoExpiryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const ReviewEvidenceApplicabilityResponse = zod.object({
+  "name": zod.string().min(1),
+  "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'staff_cv', 'project_reference', 'oem_authorization', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
+  "objectPath": zod.string().min(1),
+  "contentType": zod.string().min(1),
+  "size": zod.number().int().min(1),
+  "notes": zod.string().optional()
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "uploadedAt": zod.coerce.date(),
+  "companyEvidenceId": zod.string().uuid().nullish(),
+  "applicability": zod.enum(['pending', 'applicable', 'not_applicable']).optional(),
+  "issueDate": zod.string().regex(reviewEvidenceApplicabilityResponseTwoIssueDateRegExp).nullish(),
+  "expiryDate": zod.string().regex(reviewEvidenceApplicabilityResponseTwoExpiryDateRegExp).nullish(),
+  "warnings": zod.array(zod.string()).optional()
+}))
+
+
 /**
  * Returns server health status
  * @summary Health check
@@ -1156,18 +1387,25 @@ export const ListTenderEvidenceParams = zod.object({
 
 
 
+export const listTenderEvidenceResponseTwoIssueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const listTenderEvidenceResponseTwoExpiryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 
 
 export const ListTenderEvidenceResponseItem = zod.object({
   "name": zod.string().min(1),
-  "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
+  "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'staff_cv', 'project_reference', 'oem_authorization', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
   "objectPath": zod.string().min(1),
   "contentType": zod.string().min(1),
   "size": zod.number().int().min(1),
   "notes": zod.string().optional()
 }).and(zod.object({
   "id": zod.string().uuid(),
-  "uploadedAt": zod.coerce.date()
+  "uploadedAt": zod.coerce.date(),
+  "companyEvidenceId": zod.string().uuid().nullish(),
+  "applicability": zod.enum(['pending', 'applicable', 'not_applicable']).optional(),
+  "issueDate": zod.string().regex(listTenderEvidenceResponseTwoIssueDateRegExp).nullish(),
+  "expiryDate": zod.string().regex(listTenderEvidenceResponseTwoExpiryDateRegExp).nullish(),
+  "warnings": zod.array(zod.string()).optional()
 }))
 export const ListTenderEvidenceResponse = zod.array(ListTenderEvidenceResponseItem)
 
@@ -1187,7 +1425,7 @@ export const AddTenderEvidenceParams = zod.object({
 
 export const AddTenderEvidenceBody = zod.object({
   "name": zod.string().min(1),
-  "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
+  "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'staff_cv', 'project_reference', 'oem_authorization', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
   "objectPath": zod.string().min(1),
   "contentType": zod.string().min(1),
   "size": zod.number().int().min(1),
@@ -1198,18 +1436,25 @@ export const AddTenderEvidenceBody = zod.object({
 
 
 
+export const addTenderEvidenceResponseTwoIssueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const addTenderEvidenceResponseTwoExpiryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 
 
 export const AddTenderEvidenceResponse = zod.object({
   "name": zod.string().min(1),
-  "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
+  "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'staff_cv', 'project_reference', 'oem_authorization', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
   "objectPath": zod.string().min(1),
   "contentType": zod.string().min(1),
   "size": zod.number().int().min(1),
   "notes": zod.string().optional()
 }).and(zod.object({
   "id": zod.string().uuid(),
-  "uploadedAt": zod.coerce.date()
+  "uploadedAt": zod.coerce.date(),
+  "companyEvidenceId": zod.string().uuid().nullish(),
+  "applicability": zod.enum(['pending', 'applicable', 'not_applicable']).optional(),
+  "issueDate": zod.string().regex(addTenderEvidenceResponseTwoIssueDateRegExp).nullish(),
+  "expiryDate": zod.string().regex(addTenderEvidenceResponseTwoExpiryDateRegExp).nullish(),
+  "warnings": zod.array(zod.string()).optional()
 }))
 
 

@@ -9,6 +9,7 @@ import proposalsRouter from "./proposals";
 import libraryRouter from "./proposal-library";
 import extractionRouter from "./document-extractions";
 import requirementItemsRouter from "./requirement-items";
+import companyEvidenceRouter from "./company-evidence";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,5 @@ router.use(proposalsRouter);
 router.use(libraryRouter);
 router.use(extractionRouter);
 router.use(requirementItemsRouter);
-
+router.use(companyEvidenceRouter);
 export default router;
