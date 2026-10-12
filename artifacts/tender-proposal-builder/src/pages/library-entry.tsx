@@ -6,6 +6,7 @@ import type { LibraryEntryDetail, LibraryEntryUpdateCategory, LibraryEntryUpdate
 import { ArrowLeft, Check, CircleAlert, ExternalLink, FileText, LoaderCircle, Trash2 } from 'lucide-react';
 import { Button, Dialog, Field, PageSkeleton, Pill, QueryError, cn, errorText, formatDate, inputClass } from '@/components/ui-kit';
 import { OutcomePill, SCAN_NOTE, categoryLabel, libraryCategories, libraryOutcomes, objectUrl } from '@/components/library/shared';
+import { DocumentReview } from '@/components/document-review';
 
 function TextBlock({ label, text, path }: { label: string; text: string; path: string | null }) {
   return <section className="rounded-xl border border-border bg-card p-5" data-testid={`section-text-${label.toLowerCase()}`}>
@@ -14,6 +15,7 @@ function TextBlock({ label, text, path }: { label: string; text: string; path: s
     {!path ? <p className="mt-3 text-xs text-muted-foreground">No {label.toLowerCase()} file was stored for this entry.</p>
       : text.trim() ? <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-background p-4 font-sans text-xs leading-6">{text}</pre>
       : <p className="mt-3 rounded-lg bg-amber-900/[.06] p-3 text-xs leading-5 text-amber-900">No readable text was extracted. {SCAN_NOTE}</p>}
+    {path && <DocumentReview path={path}/>}
   </section>;
 }
 

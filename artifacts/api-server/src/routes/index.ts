@@ -7,6 +7,7 @@ import tenderRequirementsRouter from "./tender-requirements";
 import evidenceRouter from "./evidence";
 import proposalsRouter from "./proposals";
 import libraryRouter from "./proposal-library";
+import extractionRouter from "./document-extractions";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(tenderRequirementsRouter);
 router.use(evidenceRouter);
 router.use(proposalsRouter);
 router.use(libraryRouter);
+router.use(extractionRouter);
 
 export default router;

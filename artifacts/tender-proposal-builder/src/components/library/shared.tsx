@@ -9,4 +9,4 @@ export const objectUrl = (path: string) => `/api/storage${path}`;
 export function OutcomePill({ value }: { value: string }) {
   return <Pill tone={value === 'won' ? 'green' : value === 'lost' || value === 'rejected' ? 'red' : 'neutral'}>{outcomeLabel(value)}</Pill>;
 }
-export const SCAN_NOTE = 'Scanned or unreadable documents have no extracted text, so they can only be found through their metadata and notes.';
+export const SCAN_NOTE = 'OCR runs locally for scanned PDFs and document images; originals and embedded source text stay unchanged. Review OCR against the original before using it in drafts. No document images are sent to an AI provider.';

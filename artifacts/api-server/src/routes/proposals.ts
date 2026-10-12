@@ -10,6 +10,7 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, ownedTender } from "../lib/tender-data";
 import { evidenceContext } from "../lib/documents";
 import { requirementsInFlight, sameTenderSources } from "../lib/tender-requirements";
+import { ensureExtraction, draftingText } from "../lib/document-extractions";
 
 const router: IRouter = Router();
 const generating = new Set<string>();
@@ -50,9 +51,14 @@ router.post("/tenders/:tenderId/proposals/generate", async (req, res): Promise<v
     // Reviewed tender requirements already include source citations and mandatory forms.
     // Avoid re-reading/OCR-billing the same RFP and exceeding evidence limits on long tenders.
     const documents = await evidenceContext(tender.requirementsExtraction?.reviewedAt ? files.filter(f => f.category !== "tender_rfp") : files);
-    const historicalGuidance = library.map(entry =>
-      `HISTORICAL GUIDELINE ONLY: ${entry.title}\nAgency: ${entry.agency}\nSubmitted: ${entry.submissionDate ?? "unknown"}\nOutcome: ${entry.outcome}\nNotes: ${entry.notes}\nExtraction warnings: ${entry.extractionWarnings.join("; ")}\nTENDER EXCERPT:\n${entry.tenderText.slice(0, 5000)}\nTECHNICAL STYLE EXCERPT:\n${entry.technicalText.slice(0, 15000)}\nCOMMERCIAL STRUCTURE EXCERPT (NOT CURRENT PRICES):\n${entry.commercialText.slice(0, 15000)}\n[Only historical excerpts are supplied; do not infer omitted content.]`,
-    ).join("\n\n---\n\n");
+    const historicalGuidance = (await Promise.all(library.map(async entry => {
+      const read = async (path: string | null, source: string) => path ? draftingText(await ensureExtraction(path, ownerId), entry.title) : source;
+      const tenderText = await read(entry.tenderObjectPath, entry.tenderText);
+      const technicalText = await read(entry.technicalObjectPath, entry.technicalText);
+      const commercialText = await read(entry.commercialObjectPath, entry.commercialText);
+      return (
+      `HISTORICAL GUIDELINE ONLY: ${entry.title}\nAgency: ${entry.agency}\nSubmitted: ${entry.submissionDate ?? "unknown"}\nOutcome: ${entry.outcome}\nNotes: ${entry.notes}\nExtraction warnings: ${entry.extractionWarnings.join("; ")}\nTENDER EXCERPT:\n${tenderText.slice(0, 5000)}\nTECHNICAL STYLE EXCERPT:\n${technicalText.slice(0, 15000)}\nCOMMERCIAL STRUCTURE EXCERPT (NOT CURRENT PRICES):\n${commercialText.slice(0, 15000)}\n[Only historical excerpts are supplied; do not infer omitted content.]`);
+    }))).join("\n\n---\n\n");
     if (documents.length + historicalGuidance.length > 240000) {
       throw new Error("The selected evidence and historical examples are too large together. Select fewer library examples or shorter evidence documents.");
     }

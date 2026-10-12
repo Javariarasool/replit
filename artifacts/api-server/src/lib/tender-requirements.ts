@@ -2,10 +2,8 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import type { Evidence, RequirementsExtraction } from "@workspace/db";
-import { ObjectStorageService } from "./objectStorage";
-import { extractDocumentText, MAX_DOCUMENT_BYTES } from "./documents";
+import { ensureExtraction, draftingText } from "./document-extractions";
 
-const storage = new ObjectStorageService();
 export const requirementsInFlight = new Set<string>();
 const resultSchema = z.object({
   summary: z.string().max(12000),
@@ -41,11 +39,10 @@ export async function extractTenderRequirements(files: Evidence[]): Promise<Requ
   const documents: { label: string; text: string }[] = [];
   let characters = 0;
   for (const file of files) {
-    const object = await storage.getObjectEntityFile(file.objectPath);
-    const [metadata] = await object.getMetadata();
-    if (Number(metadata.size) > MAX_DOCUMENT_BYTES) throw new Error(`"${file.name}" exceeds the 25 MB limit.`);
-    const [buffer] = await object.download();
-    const text = await extractDocumentText(buffer, file.contentType, file.name);
+    // Use the same local reading and human-verification boundary as proposal drafts.
+    // In particular, a scan must never be sent to the requirements AI unverified.
+    const extraction = await ensureExtraction(file.objectPath, file.ownerId);
+    const text = draftingText(extraction, file.name);
     if (text.replace(/--\s*\d+\s*of\s*\d+\s*--/g, "").replace(/[^\p{L}\p{N}]/gu, "").length < 30) {
       throw new Error(`No readable tender text was found in "${file.name}". Use a searchable document or the scanned-document import flow; no requirements were guessed.`);
     }

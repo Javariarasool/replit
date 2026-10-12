@@ -12,6 +12,7 @@ import { requireAuth, ownedTender } from "../lib/tender-data";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { researchSource } from "../lib/vendor-research";
 import { removeUnusedUpload } from "../lib/upload-cleanup";
+import { ensureExtraction } from "../lib/document-extractions";
 
 const router: IRouter = Router();
 const storage = new ObjectStorageService();
@@ -36,6 +37,9 @@ router.post("/tenders/:tenderId/evidence", async (req, res): Promise<void> => {
   const object = await storage.getObjectEntityFile(upload.objectPath);
   const [metadata] = await object.getMetadata();
   if (Number(metadata.size) > 25 * 1024 * 1024) { res.status(400).json({ error: "Documents must be 25 MB or smaller." }); return; }
+  // Extraction failure is visible in the document record; the original remains intact.
+  try { await ensureExtraction(upload.objectPath, req.user!.id); }
+  catch { /* The saved evidence exposes an explicit extraction action when OCR is busy. */ }
   const [row] = await db.insert(evidenceTable).values({
     ...body.data, name: upload.name, size: Number(metadata.size), contentType: upload.contentType,
     tenderId: params.data.tenderId, ownerId: req.user!.id, notes: body.data.notes ?? "",

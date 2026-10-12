@@ -5,6 +5,63 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface ExtractionInput {
+  /** @minLength 1 */
+  objectPath: string;
+  retry?: boolean;
+}
+
+export type ExtractionReviewStatus = typeof ExtractionReviewStatus[keyof typeof ExtractionReviewStatus];
+
+
+export const ExtractionReviewStatus = {
+  verified: 'verified',
+  rejected: 'rejected',
+} as const;
+
+export interface ExtractionReview {
+  /** @minLength 1 */
+  objectPath: string;
+  status: ExtractionReviewStatus;
+  confirmed: boolean;
+  /** @maxLength 500000 */
+  reviewedText?: string;
+}
+
+export type DocumentExtractionStatus = typeof DocumentExtractionStatus[keyof typeof DocumentExtractionStatus];
+
+
+export const DocumentExtractionStatus = {
+  not_needed: 'not_needed',
+  needs_review: 'needs_review',
+  verified: 'verified',
+  rejected: 'rejected',
+  failed: 'failed',
+} as const;
+
+export type DocumentExtractionPagesItem = {
+  page: number;
+  text: string;
+  /** @nullable */
+  confidence: number | null;
+};
+
+export interface DocumentExtraction {
+  sourceText: string;
+  ocrText: string;
+  /** @nullable */
+  confidence: number | null;
+  status: DocumentExtractionStatus;
+  /** @nullable */
+  error: string | null;
+  /** @nullable */
+  reviewedText: string | null;
+  /** @nullable */
+  reviewedAt: string | null;
+  engine: string;
+  pages: DocumentExtractionPagesItem[];
+}
+
 export type LibraryEntryInputCategory = typeof LibraryEntryInputCategory[keyof typeof LibraryEntryInputCategory];
 
 
@@ -500,3 +557,9 @@ export const ListProposalLibraryOutcome = {
   unknown: 'unknown',
 } as const;
 
+export type GetDocumentExtractionParams = {
+/**
+ * @minLength 1
+ */
+objectPath: string;
+};

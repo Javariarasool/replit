@@ -4,7 +4,8 @@ import { useCreateLibraryEntry, useRequestUploadUrl, getListProposalLibraryQuery
 import type { LibraryEntryInput, LibraryEntryInputCategory, LibraryEntryInputOutcome } from '@workspace/api-client-react';
 import { LoaderCircle, Upload, Info } from 'lucide-react';
 import { Button, Dialog, Field, inputClass, cn, errorText } from '@/components/ui-kit';
-import { libraryCategories, libraryOutcomes, SCAN_NOTE } from './shared';
+import { libraryCategories, libraryOutcomes } from './shared';
+import { OCR_NOTE } from '@/components/document-review';
 
 type Slot = 'tender' | 'technical' | 'commercial';
 const slots: Array<[Slot, string]> = [['tender', 'Tender document (required)'], ['technical', 'Technical proposal'], ['commercial', 'Commercial proposal']];
@@ -50,7 +51,7 @@ export function ImportDialog({ close, onCreated }: { close: () => void; onCreate
       <div className="grid gap-2">{slots.map(([slot, label]) => <label key={slot} className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border bg-background px-3.5 py-3 text-sm hover:border-primary">
         <Upload size={16} className="text-primary"/><span className="flex-1"><span className="block font-semibold">{label}</span><span className="block truncate text-xs text-muted-foreground">{files[slot]?.name ?? 'Choose a file'}</span></span>
         <input type="file" className="sr-only" onChange={e => { const f = e.target.files?.[0]; setFiles(p => ({ ...p, [slot]: f })); }} data-testid={`input-library-file-${slot}`}/></label>)}</div>
-      <p className="flex items-start gap-2 rounded-lg bg-secondary/60 p-3 text-xs leading-5 text-muted-foreground"><Info size={14} className="mt-0.5 shrink-0"/>{SCAN_NOTE}</p>
+      <p className="flex items-start gap-2 rounded-lg bg-secondary/60 p-3 text-xs leading-5 text-muted-foreground"><Info size={14} className="mt-0.5 shrink-0"/>{OCR_NOTE}</p>
       {error && <p className="text-sm text-destructive" data-testid="text-import-error">{error}</p>}
       <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="quiet" onClick={close}>Cancel</Button><Button type="submit" disabled={busy} data-testid="button-submit-import">{busy ? <LoaderCircle size={15} className="animate-spin"/> : <Upload size={15}/>}Import to library</Button></div>
     </form>

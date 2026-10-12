@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, ilike, or, desc } from "drizzle-orm";
+import { and, eq, ilike, or, desc, sql } from "drizzle-orm";
 import {
   db, proposalLibraryTable, proposalsTable, evidenceTable, uploadsTable, type ProposalLibraryEntry,
 } from "@workspace/db";
@@ -10,7 +10,8 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, ownedTender } from "../lib/tender-data";
 import { ObjectStorageService } from "../lib/objectStorage";
-import { extractDocumentText, evidenceContext } from "../lib/documents";
+import { evidenceContext } from "../lib/documents";
+import { ensureExtraction } from "../lib/document-extractions";
 import { removeUnusedUpload } from "../lib/upload-cleanup";
 
 const router: IRouter = Router();
@@ -30,7 +31,9 @@ router.get("/proposal-library", async (req, res): Promise<void> => {
   if (params.data.outcome) filters.push(eq(proposalLibraryTable.outcome, params.data.outcome));
   if (params.data.q?.trim()) {
     const term = `%${params.data.q.trim().replace(/[%_\\]/g, "\\$&")}%`;
-    filters.push(or(...[
+    filters.push(or(sql`exists (select 1 from document_uploads u where u.owner_id = ${req.user!.id}
+      and u.object_path in (${proposalLibraryTable.tenderObjectPath}, ${proposalLibraryTable.technicalObjectPath}, ${proposalLibraryTable.commercialObjectPath})
+      and (u.extraction->>'ocrText' ilike ${term} or u.extraction->>'reviewedText' ilike ${term}))`, ...[
       proposalLibraryTable.title, proposalLibraryTable.tenderTitle, proposalLibraryTable.agency,
       proposalLibraryTable.referenceNumber, proposalLibraryTable.versionLabel, proposalLibraryTable.notes, proposalLibraryTable.tenderText,
       proposalLibraryTable.technicalText, proposalLibraryTable.commercialText,
@@ -76,10 +79,11 @@ router.post("/proposal-library", async (req, res): Promise<void> => {
         const file = await storage.getObjectEntityFile(path);
         const [metadata] = await file.getMetadata();
         if (Number(metadata.size) > 25 * 1024 * 1024) throw new Error(`${label} must be 25 MB or smaller.`);
-        const [buffer] = await file.download();
         try {
-          const text = await extractDocumentText(buffer, upload.contentType, upload.name);
-          if (!text.trim()) warnings.push(`${label}: no readable text found. Add notes or a text-based document before automatic reuse.`);
+          const extraction = await ensureExtraction(path, ownerId);
+          const text = extraction.sourceText;
+          if (extraction.status === "failed") warnings.push(`${label}: ${extraction.error} Original preserved; review extraction details.`);
+          if (!text.trim() && !extraction.ocrText.trim()) warnings.push(`${label}: no readable text found. Add notes or a clearer document.`);
           if (text.length > 500000) {
             warnings.push(`${label}: extracted text exceeds the archive limit. The original file is stored; text search/reuse is unavailable for this document.`);
             return "";

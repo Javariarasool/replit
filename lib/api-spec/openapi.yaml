@@ -502,6 +502,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UploadUrlResponse"
+  /documents/extraction:
+    get:
+      operationId: getDocumentExtraction
+      tags: [evidence]
+      summary: Read separate source text and local OCR review state
+      parameters:
+        - name: objectPath
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Extraction, or null for a legacy upload not processed yet.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/DocumentExtraction"
+                  - type: "null"
+    post:
+      operationId: extractUploadedDocument
+      tags: [evidence]
+      summary: Extract locally without sending document images to an AI provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExtractionInput" }
+      responses:
+        "200":
+          description: Local extraction result.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentExtraction" }
+    patch:
+      operationId: reviewDocumentExtraction
+      tags: [evidence]
+      summary: Verify corrected OCR against the original or reject it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExtractionReview" }
+      responses:
+        "200":
+          description: Saved human review.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentExtraction" }
 components:
   responses:
     Error:
@@ -521,6 +570,41 @@ components:
       required: true
       schema: { type: string, format: uuid }
   schemas:
+    ExtractionInput:
+      type: object
+      required: [objectPath]
+      properties:
+        objectPath: { type: string, minLength: 1 }
+        retry: { type: boolean, default: false }
+    ExtractionReview:
+      type: object
+      required: [objectPath, status, confirmed]
+      properties:
+        objectPath: { type: string, minLength: 1 }
+        status: { type: string, enum: [verified, rejected] }
+        confirmed: { type: boolean }
+        reviewedText: { type: string, maxLength: 500000 }
+    DocumentExtraction:
+      type: object
+      required: [sourceText, ocrText, confidence, pages, status, error, reviewedText, reviewedAt, engine]
+      properties:
+        sourceText: { type: string }
+        ocrText: { type: string }
+        confidence: { type: [number, "null"] }
+        status: { type: string, enum: [not_needed, needs_review, verified, rejected, failed] }
+        error: { type: [string, "null"] }
+        reviewedText: { type: [string, "null"] }
+        reviewedAt: { type: [string, "null"] }
+        engine: { type: string }
+        pages:
+          type: array
+          items:
+            type: object
+            required: [page, text, confidence]
+            properties:
+              page: { type: integer }
+              text: { type: string }
+              confidence: { type: [number, "null"] }
     LibraryEntryInput:
       type: object
       required: [title, agency, category]
@@ -804,4 +888,3 @@ components:
       properties:
         uploadURL: { type: string, format: uri }
         objectPath: { type: string }
-

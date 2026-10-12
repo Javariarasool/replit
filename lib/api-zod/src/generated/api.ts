@@ -62,8 +62,6 @@ export const LogoutBrowserSessionResponse = zod.void()
  */
 
 
-
-
 export const GetDashboardSummaryResponse = zod.object({
   "activeTenders": zod.number().int(),
   "awaitingReview": zod.number().int(),
@@ -104,8 +102,6 @@ export const GetDashboardSummaryResponse = zod.object({
  */
 
 
-
-
 export const ListTendersResponseItem = zod.object({
   "title": zod.string().min(1),
   "agency": zod.string().min(1),
@@ -142,8 +138,6 @@ export const ListTendersResponse = zod.array(ListTendersResponseItem)
  */
 
 
-
-
 export const CreateTenderBody = zod.object({
   "title": zod.string().min(1),
   "agency": zod.string().min(1),
@@ -153,9 +147,6 @@ export const CreateTenderBody = zod.object({
   "summary": zod.string().optional(),
   "requirements": zod.string().optional()
 })
-
-
-
 
 
 export const CreateTenderResponse = zod.object({
@@ -194,9 +185,6 @@ export const CreateTenderResponse = zod.object({
 export const GetTenderParams = zod.object({
   "tenderId": zod.coerce.string().uuid()
 })
-
-
-
 
 
 export const GetTenderResponse = zod.object({
@@ -240,9 +228,6 @@ export const UpdateTenderParams = zod.object({
 })
 
 
-
-
-
 export const UpdateTenderBody = zod.object({
   "title": zod.string().min(1).optional(),
   "agency": zod.string().min(1).optional(),
@@ -254,9 +239,6 @@ export const UpdateTenderBody = zod.object({
   "status": zod.enum(['draft', 'in_progress', 'ready_for_review', 'submitted']).optional(),
   "reviewedExtractionId": zod.string().uuid().optional()
 })
-
-
-
 
 
 export const UpdateTenderResponse = zod.object({
@@ -311,9 +293,6 @@ export const ExtractTenderRequirementsBody = zod.object({
 })
 
 
-
-
-
 export const ExtractTenderRequirementsResponse = zod.object({
   "title": zod.string().min(1),
   "agency": zod.string().min(1),
@@ -352,11 +331,6 @@ export const ListTenderEvidenceParams = zod.object({
 })
 
 
-
-
-
-
-
 export const ListTenderEvidenceResponseItem = zod.object({
   "name": zod.string().min(1),
   "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
@@ -379,11 +353,6 @@ export const AddTenderEvidenceParams = zod.object({
 })
 
 
-
-
-
-
-
 export const AddTenderEvidenceBody = zod.object({
   "name": zod.string().min(1),
   "category": zod.enum(['tender_rfp', 'previous_proposal', 'company_profile', 'certification', 'cv_reference', 'technical_bom', 'vendor_quote', 'oem_datasheet', 'other']),
@@ -392,11 +361,6 @@ export const AddTenderEvidenceBody = zod.object({
   "size": zod.number().int().min(1),
   "notes": zod.string().optional()
 })
-
-
-
-
-
 
 
 export const AddTenderEvidenceResponse = zod.object({
@@ -430,10 +394,6 @@ export const ListVendorSourcesParams = zod.object({
 })
 
 
-
-
-
-
 export const ListVendorSourcesResponseItem = zod.object({
   "manufacturer": zod.string().min(1),
   "product": zod.string().min(1),
@@ -457,10 +417,6 @@ export const AddVendorSourceParams = zod.object({
 })
 
 
-
-
-
-
 export const AddVendorSourceBody = zod.object({
   "manufacturer": zod.string().min(1),
   "product": zod.string().min(1),
@@ -468,10 +424,6 @@ export const AddVendorSourceBody = zod.object({
   "sourceUrl": zod.string().url(),
   "sourceTitle": zod.string().optional()
 })
-
-
-
-
 
 
 export const AddVendorSourceResponse = zod.object({
@@ -497,9 +449,6 @@ export const ResearchVendorSourceParams = zod.object({
 })
 
 
-
-
-
 export const ResearchVendorSourceBody = zod.object({
   "manufacturer": zod.string().min(1),
   "product": zod.string().min(1),
@@ -521,10 +470,6 @@ export const ReviewVendorSourceParams = zod.object({
 })
 
 
-
-
-
-
 export const ReviewVendorSourceBody = zod.object({
   "manufacturer": zod.string().min(1).optional(),
   "product": zod.string().min(1).optional(),
@@ -533,10 +478,6 @@ export const ReviewVendorSourceBody = zod.object({
   "sourceTitle": zod.string().optional(),
   "reviewStatus": zod.enum(['pending', 'approved', 'rejected']).optional()
 })
-
-
-
-
 
 
 export const ReviewVendorSourceResponse = zod.object({
@@ -582,7 +523,6 @@ export const GenerateProposalPairParams = zod.object({
 })
 
 export const generateProposalPairBodyLibraryEntryIdsMax = 5;
-
 
 
 export const GenerateProposalPairBody = zod.object({
@@ -641,8 +581,6 @@ export const UpdateProposalParams = zod.object({
 })
 
 
-
-
 export const UpdateProposalBody = zod.object({
   "title": zod.string().min(1).optional(),
   "content": zod.string().optional(),
@@ -665,7 +603,6 @@ export const UpdateProposalResponse = zod.object({
  * @summary Search the signed-in user's past tender-proposal pairs
  */
 export const listProposalLibraryQueryQMax = 200;
-
 
 
 export const ListProposalLibraryQueryParams = zod.object({
@@ -708,7 +645,6 @@ export const createLibraryEntryBodyAgencyMax = 300;
 export const createLibraryEntryBodyVersionLabelMax = 100;
 
 export const createLibraryEntryBodyNotesMax = 20000;
-
 
 
 export const CreateLibraryEntryBody = zod.object({
@@ -796,7 +732,6 @@ export const updateLibraryEntryBodyVersionLabelMax = 100;
 export const updateLibraryEntryBodyNotesMax = 20000;
 
 
-
 export const UpdateLibraryEntryBody = zod.object({
   "title": zod.string().min(1).max(updateLibraryEntryBodyTitleMax).optional(),
   "tenderTitle": zod.string().max(updateLibraryEntryBodyTenderTitleMax).optional(),
@@ -846,9 +781,6 @@ export const DeleteLibraryEntryResponse = zod.void()
  */
 
 
-
-
-
 export const RequestUploadUrlBody = zod.object({
   "name": zod.string().min(1),
   "size": zod.number().int().min(1),
@@ -860,4 +792,88 @@ export const RequestUploadUrlResponse = zod.object({
   "objectPath": zod.string()
 })
 
+
+/**
+ * @summary Read separate source text and local OCR review state
+ */
+
+
+export const GetDocumentExtractionQueryParams = zod.object({
+  "objectPath": zod.coerce.string().min(1)
+})
+
+export const GetDocumentExtractionResponse = zod.union([zod.object({
+  "sourceText": zod.string(),
+  "ocrText": zod.string(),
+  "confidence": zod.number().nullable(),
+  "status": zod.enum(['not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "error": zod.string().nullable(),
+  "reviewedText": zod.string().nullable(),
+  "reviewedAt": zod.string().nullable(),
+  "engine": zod.string(),
+  "pages": zod.array(zod.object({
+  "page": zod.number().int(),
+  "text": zod.string(),
+  "confidence": zod.number().nullable()
+}))
+}),zod.null()])
+
+
+/**
+ * @summary Extract locally without sending document images to an AI provider
+ */
+
+export const extractUploadedDocumentBodyRetryDefault = false;
+
+export const ExtractUploadedDocumentBody = zod.object({
+  "objectPath": zod.string().min(1),
+  "retry": zod.boolean().default(extractUploadedDocumentBodyRetryDefault)
+})
+
+export const ExtractUploadedDocumentResponse = zod.object({
+  "sourceText": zod.string(),
+  "ocrText": zod.string(),
+  "confidence": zod.number().nullable(),
+  "status": zod.enum(['not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "error": zod.string().nullable(),
+  "reviewedText": zod.string().nullable(),
+  "reviewedAt": zod.string().nullable(),
+  "engine": zod.string(),
+  "pages": zod.array(zod.object({
+  "page": zod.number().int(),
+  "text": zod.string(),
+  "confidence": zod.number().nullable()
+}))
+})
+
+
+/**
+ * @summary Verify corrected OCR against the original or reject it
+ */
+
+export const reviewDocumentExtractionBodyReviewedTextMax = 500000;
+
+
+export const ReviewDocumentExtractionBody = zod.object({
+  "objectPath": zod.string().min(1),
+  "status": zod.enum(['verified', 'rejected']),
+  "confirmed": zod.boolean(),
+  "reviewedText": zod.string().max(reviewDocumentExtractionBodyReviewedTextMax).optional()
+})
+
+export const ReviewDocumentExtractionResponse = zod.object({
+  "sourceText": zod.string(),
+  "ocrText": zod.string(),
+  "confidence": zod.number().nullable(),
+  "status": zod.enum(['not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "error": zod.string().nullable(),
+  "reviewedText": zod.string().nullable(),
+  "reviewedAt": zod.string().nullable(),
+  "engine": zod.string(),
+  "pages": zod.array(zod.object({
+  "page": zod.number().int(),
+  "text": zod.string(),
+  "confidence": zod.number().nullable()
+}))
+})
 

@@ -1,9 +1,8 @@
 import { PDFParse } from "pdf-parse";
 import { extractRawText } from "mammoth";
-import { ObjectStorageService } from "./objectStorage";
 import type { Evidence } from "@workspace/db";
+import { ensureExtraction, draftingText } from "./document-extractions";
 
-const storage = new ObjectStorageService();
 export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 
 export async function extractDocumentText(buffer: Buffer, contentType: string, name = ""): Promise<string> {
@@ -25,11 +24,11 @@ export async function evidenceContext(files: Evidence[]): Promise<string> {
   const results: string[] = [];
   let totalCharacters = 0;
   for (const file of files) {
-    const object = await storage.getObjectEntityFile(file.objectPath);
-    const [buffer] = await object.download();
     let extracted: string;
+    const extraction = await ensureExtraction(file.objectPath, file.ownerId);
+    if (extraction.status === "needs_review") throw new Error(`Verify OCR for "${file.name}" in the evidence panel before drafting.`);
     try {
-      extracted = await extractDocumentText(buffer, file.contentType, file.name);
+      extracted = draftingText(extraction, file.name);
       if (!extracted.trim() && !file.notes.trim()) {
         throw new Error("No readable text was found. Scanned PDFs need OCR or human-provided evidence notes.");
       }
