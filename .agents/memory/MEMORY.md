@@ -1,1 +1,3 @@
 - [Proposal library scope](proposal-library-scope.md) — reusable private tender–proposal pairs; historical documents guide structure, not current bidder facts or prices.
+- [Automatic tender requirements](requirements-extraction-scope.md) — tender uploads should extract clauses automatically, without silently replacing human corrections.
+- [OpenAPI request bodies](openapi-request-bodies.md) — named body schemas avoid collisions between generated TypeScript body types and Zod exports.

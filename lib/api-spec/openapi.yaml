@@ -171,6 +171,30 @@ paths:
       responses:
         "204":
           description: Deleted.
+  /tenders/{tenderId}/requirements/extract:
+    post:
+      operationId: extractTenderRequirements
+      tags: [tenders]
+      summary: Extract a reviewable brief from this tender's uploaded RFP documents
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtractRequirementsInput"
+      responses:
+        "200":
+          description: Tender with a persisted extraction awaiting human review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tender" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
   /tenders/{tenderId}/evidence:
     get:
       operationId: listTenderEvidence
@@ -479,6 +503,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/UploadUrlResponse"
 components:
+  responses:
+    Error:
+      description: Request could not be completed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
   parameters:
     LibraryEntryId:
       name: entryId
@@ -603,6 +633,32 @@ components:
         summary: { type: string }
         requirements: { type: string }
         status: { type: string, enum: [draft, in_progress, ready_for_review, submitted] }
+        reviewedExtractionId: { type: string, format: uuid }
+    ExtractRequirementsInput:
+      type: object
+      required: [aiConsent]
+      properties:
+        aiConsent: { type: boolean, enum: [true] }
+    RequirementsExtraction:
+      type: object
+      required: [id, requirements, summary, sourceFiles, warnings, extractedAt, reviewedAt]
+      properties:
+        id: { type: string, format: uuid }
+        requirements: { type: string }
+        summary: { type: string }
+        extractedAt: { type: string, format: date-time }
+        reviewedAt: { type: [string, "null"], format: date-time }
+        warnings:
+          type: array
+          items: { type: string }
+        sourceFiles:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
     Tender:
       allOf:
         - $ref: "#/components/schemas/TenderInput"
@@ -615,6 +671,10 @@ components:
             proposalCount: { type: integer }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
+            requirementsExtraction:
+              oneOf:
+                - $ref: "#/components/schemas/RequirementsExtraction"
+                - type: "null"
     TenderDetail:
       allOf:
         - $ref: "#/components/schemas/Tender"

@@ -6,7 +6,7 @@ import {
   useGetDashboardSummary, useListTenders, useCreateTender, useGetTender, useUpdateTender, useDeleteTender,
   useListTenderEvidence, useAddTenderEvidence, useDeleteEvidence, useListVendorSources, useAddVendorSource,
   useReviewVendorSource, useListProposals, useGenerateProposalPair, useUpdateProposal, useRequestUploadUrl,
-  useResearchVendorSource,
+  useResearchVendorSource, useExtractTenderRequirements,
   getGetDashboardSummaryQueryKey, getListTendersQueryKey, getGetTenderQueryKey, getListTenderEvidenceQueryKey,
   getListVendorSourcesQueryKey, getListProposalsQueryKey,
 } from '@workspace/api-client-react';
@@ -14,7 +14,7 @@ import type { Evidence, EvidenceInput, Proposal, Tender, TenderInputCategory, Ve
 import {
   Archive, ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Clock3, FilePlus2,
   FileText, FolderOpen, Info, LoaderCircle, LogOut, Menu, Plus, Search, ShieldCheck, Sparkles, Trash2,
-  Upload, X, ExternalLink, ClipboardList, PackageCheck, Building2, Layers3, RotateCcw,
+  Upload, X, ExternalLink, ClipboardList, Building2, Layers3, RotateCcw,
 } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -26,6 +26,7 @@ import { ArchivePairButton } from '@/components/library/archive-button';
 import LibraryPage from '@/pages/library';
 import LibraryEntryPage from '@/pages/library-entry';
 import ProposalEditor from '@/pages/proposal-editor';
+import { RequirementsPanel } from '@/components/requirements-panel';
 
 const queryClient = new QueryClient();
 const categories = [
@@ -93,7 +94,7 @@ function CreateTenderDialog({ close }: { close: () => void }) {
       <div className="grid gap-4 sm:grid-cols-2"><Field label="Procuring agency"><input required className={inputClass} value={form.agency} onChange={e => update('agency', e.target.value)} placeholder="Agency / department" data-testid="input-tender-agency"/></Field><Field label="Reference number"><input className={inputClass} value={form.referenceNumber} onChange={e => update('referenceNumber', e.target.value)} placeholder="Optional" data-testid="input-tender-reference"/></Field></div>
       <div className="grid gap-4 sm:grid-cols-2"><Field label="Category"><select className={inputClass} value={form.category} onChange={e => update('category', e.target.value)} data-testid="select-tender-category"><option value="mixed">Mixed</option><option value="hardware">Hardware</option><option value="networking">Networking</option><option value="software">Software</option><option value="services">Services</option></select></Field><Field label="Closing date"><input type="date" className={inputClass} value={form.closingDate} onChange={e => update('closingDate', e.target.value)} data-testid="input-closing-date"/></Field></div>
       <Field label="Tender summary"><textarea className={cn(inputClass, 'min-h-[76px] resize-y')} value={form.summary} onChange={e => update('summary', e.target.value)} placeholder="Brief context for your team" data-testid="input-tender-summary"/></Field>
-      <Field label="Requirements"><textarea className={cn(inputClass, 'min-h-[90px] resize-y')} value={form.requirements} onChange={e => update('requirements', e.target.value)} placeholder="Paste or outline the key requirements" data-testid="input-tender-requirements"/></Field>
+      <Field label="Requirements (optional)" hint="Upload the Tender / RFP in its workspace to extract these automatically."><textarea className={cn(inputClass, 'min-h-[90px] resize-y')} value={form.requirements} onChange={e => update('requirements', e.target.value)} placeholder="Optional initial notes; no need to type the tender clauses" data-testid="input-tender-requirements"/></Field>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="quiet" onClick={close}>Cancel</Button><Button type="submit" disabled={create.isPending} data-testid="button-create-tender">{create.isPending ? <LoaderCircle className="animate-spin" size={16}/> : <Plus size={16}/>}Create workspace</Button></div>
     </form>
@@ -146,6 +147,7 @@ function TenderWorkspace() {
   const [, navigate] = useLocation();
   const detail = useGetTender(id); const evidenceQuery = useListTenderEvidence(id); const sourceQuery = useListVendorSources(id); const proposalsQuery = useListProposals(id);
   const qc = useQueryClient(); const updateTender = useUpdateTender(); const deleteTender = useDeleteTender(); const gen = useGenerateProposalPair();
+  const extract = useExtractTenderRequirements(); const [requirementError, setRequirementError] = useState(''); const [tenderUploadOpen, setTenderUploadOpen] = useState(false);
   const addSource = useAddVendorSource(); const reviewSource = useReviewVendorSource(); const [tab, setTab] = useState<'requirements' | 'evidence' | 'sources' | 'proposals'>('requirements');
   const [dialog, setDialog] = useState<DialogName>(null); const [deleteConfirm, setDeleteConfirm] = useState(false); const [error, setError] = useState('');
   const tender = detail.data;
@@ -159,6 +161,10 @@ function TenderWorkspace() {
   const pending = (sourceQuery.data ?? []).filter(source => source.reviewStatus === 'pending').length;
   const performDelete = () => deleteTender.mutate({ tenderId: id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getListTendersQueryKey() }); void qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); navigate('/'); }, onError: e => setError(errorText(e)) });
   const runGenerate = (ids: string[]) => { setError(''); gen.mutate({ tenderId: id, data: { aiConsent: true, ...(ids.length ? { libraryEntryIds: ids } : {}) } }, { onSuccess: refresh, onError: e => setError(errorText(e)) }); setDialog(null); };
+  const runExtraction = () => { setTab('requirements'); setRequirementError(''); extract.mutate({ tenderId: id, data: { aiConsent: true } }, { onSuccess: refresh, onError: e => { refresh(); setRequirementError(`Your uploaded documents and saved brief are unchanged. ${errorText(e)}`); } }); };
+  const requirementsBlocked = extract.isPending ? 'Tender requirements are being extracted. Review them before generating.' :
+    tender.requirementsExtraction && !tender.requirementsExtraction.reviewedAt ? 'Review the automatically extracted requirements, load them into the editor, and save to confirm review before generating.' :
+    tender.requirementsExtraction && evidenceQuery.data && JSON.stringify(evidenceQuery.data.filter(f => f.category === 'tender_rfp').map(f => f.id).sort()) !== JSON.stringify(tender.requirementsExtraction.sourceFiles.map(f => f.id).sort()) ? 'Tender documents changed. Extract and review the requirements again before generating.' : '';
   const nav = [
     { key: 'requirements', label: 'Requirements', icon: <ClipboardList size={15}/> },
     { key: 'evidence', label: 'Evidence', count: evidenceQuery.data?.length ?? tender.evidenceCount, icon: <FolderOpen size={15}/> },
@@ -174,42 +180,34 @@ function TenderWorkspace() {
     </div>
     <div className="mt-7 flex gap-1 overflow-x-auto border-b border-border pb-px">{nav.map(item => { const count = 'count' in item ? item.count : undefined; return <button key={item.key} onClick={() => setTab(item.key)} className={cn('relative flex shrink-0 items-center gap-2 px-3 py-3 text-xs font-bold transition-colors', tab === item.key ? 'text-primary' : 'text-muted-foreground hover:text-foreground')} data-testid={`tab-${item.key}`}>{item.icon}{item.label}{count !== undefined && <span className="mono rounded bg-secondary px-1.5 py-0.5 text-[10px]">{count}</span>}{tab === item.key && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded bg-primary"/>}</button>; })}</div>
     <div className="pt-6">
-      {tab === 'requirements' && <Requirements tender={tender} onSave={(requirements, summary) => updateTender.mutate({ tenderId: id, data: { requirements, summary } }, { onSuccess: refresh })} saving={updateTender.isPending}/>}
-      {tab === 'evidence' && <EvidencePanel tenderId={id} evidence={evidenceQuery.data ?? []} loading={evidenceQuery.isLoading} failed={evidenceQuery.isError} onRetry={() => void evidenceQuery.refetch()} onChanged={refresh}/>}
+      <div hidden={tab !== 'requirements'}><RequirementsPanel tender={tender} files={evidenceQuery.data ?? []} onSave={(requirements, summary, reviewedExtractionId) => { setRequirementError(''); updateTender.mutate({ tenderId: id, data: { requirements, summary, ...(reviewedExtractionId ? { reviewedExtractionId } : {}) } }, { onSuccess: refresh, onError: e => setRequirementError(errorText(e)) }); }} saving={updateTender.isPending} extracting={extract.isPending} error={requirementError} onExtract={runExtraction} onUpload={() => setTenderUploadOpen(true)}/></div>
+      {tab === 'evidence' && <EvidencePanel tenderId={id} evidence={evidenceQuery.data ?? []} loading={evidenceQuery.isLoading} failed={evidenceQuery.isError} onRetry={() => void evidenceQuery.refetch()} onChanged={refresh} onTenderUploaded={runExtraction}/>}
       {tab === 'sources' && <SourcesPanel sources={sourceQuery.data ?? []} loading={sourceQuery.isLoading} failed={sourceQuery.isError} onRetry={() => void sourceQuery.refetch()} onAdd={() => setDialog('source')} onResearch={() => setDialog('research')} onReview={(source, status) => reviewSource.mutate({ sourceId: source.id, data: { reviewStatus: status } }, { onSuccess: refresh })} busy={reviewSource.isPending}/>}
-      {tab === 'proposals' && <ProposalPanel tender={tender} proposals={proposalsQuery.data ?? []} loading={proposalsQuery.isLoading} failed={proposalsQuery.isError} onRetry={() => void proposalsQuery.refetch()} onGenerate={() => setDialog('generate')} generating={gen.isPending} error={error}/>}
+      {tab === 'proposals' && <ProposalPanel tender={tender} proposals={proposalsQuery.data ?? []} loading={proposalsQuery.isLoading} failed={proposalsQuery.isError} onRetry={() => void proposalsQuery.refetch()} onGenerate={() => setDialog('generate')} generating={gen.isPending} error={error} requirementsBlocked={requirementsBlocked}/>}
     </div>
     {dialog === 'source' && <SourceDialog tenderId={id} close={() => setDialog(null)} onDone={refresh}/>}
+    {tenderUploadOpen && <EvidenceDialog tenderId={id} close={() => setTenderUploadOpen(false)} onDone={refresh} onTenderUploaded={runExtraction}/>}
     {dialog === 'research' && <ResearchDialog tenderId={id} close={() => setDialog(null)} onDone={refresh}/>}
     {dialog === 'generate' && <GenerateDialog close={() => setDialog(null)} onConfirm={runGenerate} loading={gen.isPending}/>}
     {deleteConfirm && <Dialog title="Delete this tender?" description="This removes the tender workspace and its metadata. This action cannot be undone." onClose={() => setDeleteConfirm(false)}><div className="flex justify-end gap-2"><Button variant="quiet" onClick={() => setDeleteConfirm(false)}>Cancel</Button><Button variant="danger" onClick={performDelete} disabled={deleteTender.isPending} data-testid="button-confirm-delete">{deleteTender.isPending ? 'Deleting…' : 'Delete tender'}</Button></div>{error && <p className="mt-3 text-sm text-destructive">{error}</p>}</Dialog>}
   </div>;
 }
-function Requirements({ tender, onSave, saving }: { tender: Tender; onSave: (requirements: string, summary: string) => void; saving: boolean }) {
-  const [requirements, setRequirements] = useState(tender.requirements ?? ''); const [summary, setSummary] = useState(tender.summary ?? '');
-  return <div className="grid gap-5 lg:grid-cols-[1.5fr_.75fr]">
-    <div className="rounded-xl border border-border bg-card p-5 md:p-7"><div className="flex items-start justify-between gap-3"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-primary">Tender brief</p><h2 className="mt-1 font-[Manrope] text-xl font-bold">Requirements & context</h2><p className="mt-1 text-xs text-muted-foreground">Keep the working brief grounded in the tender record.</p></div><ClipboardList className="text-primary/70" size={21}/></div>
-      <div className="mt-6 grid gap-5"><Field label="Requirements"><textarea className={cn(inputClass, 'min-h-[210px] resize-y leading-6')} value={requirements} onChange={e => setRequirements(e.target.value)} placeholder="Add the tender's technical and compliance requirements…" data-testid="textarea-requirements"/></Field><Field label="Summary"><textarea className={cn(inputClass, 'min-h-[88px] resize-y leading-6')} value={summary} onChange={e => setSummary(e.target.value)} placeholder="Short context for the proposal team" data-testid="textarea-summary"/></Field></div>
-      <div className="mt-4 flex justify-end"><Button onClick={() => onSave(requirements, summary)} disabled={saving} data-testid="button-save-requirements">{saving ? <LoaderCircle className="animate-spin" size={15}/> : <Check size={15}/>}Save brief</Button></div>
-    </div>
-    <div className="space-y-4"><div className="rounded-xl border border-border bg-card p-5"><p className="font-mono text-[10px] uppercase tracking-[.16em] text-muted-foreground">Record details</p><dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Category</dt><dd className="font-semibold capitalize">{tender.category}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Reference</dt><dd className="mono text-xs">{tender.referenceNumber || '—'}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Created</dt><dd className="font-semibold">{formatDate(tender.createdAt)}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Last updated</dt><dd className="font-semibold">{formatDate(tender.updatedAt)}</dd></div></dl></div>
-      <div className="rounded-xl border border-primary/15 bg-primary/[.04] p-5"><div className="flex items-center gap-2 text-primary"><PackageCheck size={17}/><p className="text-sm font-bold text-foreground">Evidence-led drafting</p></div><p className="mt-2 text-xs leading-5 text-muted-foreground">Add source documents and manufacturer links before preparing separate technical and commercial drafts.</p></div></div>
-  </div>;
-}
-function EvidencePanel({ tenderId, evidence, loading, failed, onRetry, onChanged }: { tenderId: string; evidence: Evidence[]; loading: boolean; failed: boolean; onRetry: () => void; onChanged: () => void }) {
+function EvidencePanel({ tenderId, evidence, loading, failed, onRetry, onChanged, onTenderUploaded }: { tenderId: string; evidence: Evidence[]; loading: boolean; failed: boolean; onRetry: () => void; onChanged: () => void; onTenderUploaded: () => void }) {
   const [uploadOpen, setUploadOpen] = useState(false); const remove = useDeleteEvidence(); const qc = useQueryClient();
   if (loading) return <PageSkeleton/>; if (failed) return <QueryError retry={onRetry}/>;
   return <section><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-primary">Source documents</p><h2 className="mt-1 font-[Manrope] text-xl font-bold">Evidence library</h2><p className="mt-1 text-xs text-muted-foreground">Files and notes remain connected to this tender record.</p></div><Button onClick={() => setUploadOpen(true)} data-testid="button-upload-evidence"><Upload size={16}/>Add evidence</Button></div>
     {!evidence.length ? <div className="mt-5"><EmptyState title="No evidence attached yet" body="Upload the RFP, company credentials, project references, quotes or OEM datasheets that support this response." icon={<Upload size={20}/>}/></div>
       : <div className="mt-5 grid gap-3 md:grid-cols-2">{evidence.map(item => <div key={item.id} className="rounded-xl border border-border bg-card p-4" data-testid={`card-evidence-${item.id}`}><div className="flex items-start gap-3"><div className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-primary"><FileText size={18}/></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{item.name}</p><div className="mt-1.5 flex flex-wrap items-center gap-2"><Pill>{categoryName(item.category)}</Pill><span className="mono text-[10px] text-muted-foreground">{(item.size / 1024 / 1024).toFixed(1)} MB</span></div></div><button onClick={() => { if (window.confirm(`Remove evidence “${item.name}” from this tender?`)) remove.mutate({ evidenceId: item.id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getListTenderEvidenceQueryKey(tenderId) }); onChanged(); } }); }} aria-label={`Remove ${item.name}`} className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" data-testid={`button-delete-evidence-${item.id}`}><Trash2 size={15}/></button></div>{item.notes && <p className="mt-3 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">{item.notes}</p>}<p className="mt-3 text-[10px] text-muted-foreground">Added {formatDate(item.uploadedAt)}</p></div>)}</div>}
-    {uploadOpen && <EvidenceDialog tenderId={tenderId} close={() => setUploadOpen(false)} onDone={onChanged}/>}
+    {uploadOpen && <EvidenceDialog tenderId={tenderId} close={() => setUploadOpen(false)} onDone={onChanged} onTenderUploaded={onTenderUploaded}/>}
   </section>;
 }
-function EvidenceDialog({ tenderId, close, onDone }: { tenderId: string; close: () => void; onDone: () => void }) {
+function EvidenceDialog({ tenderId, close, onDone, onTenderUploaded }: { tenderId: string; close: () => void; onDone: () => void; onTenderUploaded: () => void }) {
   const uploadUrl = useRequestUploadUrl(); const add = useAddTenderEvidence(); const qc = useQueryClient();
   const [file, setFile] = useState<File | null>(null); const [category, setCategory] = useState('tender_rfp'); const [notes, setNotes] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const [aiConsent, setAiConsent] = useState(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault(); if (!file) { setError('Choose a file before continuing.'); return; }
+    if (category === 'tender_rfp' && !aiConsent) { setError('Please consent to AI processing to automatically extract this tender.'); return; }
     setBusy(true); setError('');
     try {
       const url = await new Promise<{ uploadURL: string; objectPath: string }>((resolve, reject) => uploadUrl.mutate({ data: { name: file.name, size: file.size, contentType: file.type || 'application/octet-stream' } }, { onSuccess: resolve, onError: reject }));
@@ -217,15 +215,16 @@ function EvidenceDialog({ tenderId, close, onDone }: { tenderId: string; close: 
       if (!result.ok) throw new Error(`File upload failed (${result.status}).`);
       const payload: EvidenceInput = { name: file.name, category: category as EvidenceInput['category'], objectPath: url.objectPath, contentType: file.type || 'application/octet-stream', size: file.size, notes };
       await new Promise<void>((resolve, reject) => add.mutate({ tenderId, data: payload }, { onSuccess: () => resolve(), onError: reject }));
-      void qc.invalidateQueries({ queryKey: getListTenderEvidenceQueryKey(tenderId) }); onDone(); close();
+      void qc.invalidateQueries({ queryKey: getListTenderEvidenceQueryKey(tenderId) }); onDone(); close(); if (category === 'tender_rfp') onTenderUploaded();
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };
   return <Dialog title="Attach evidence" description="Upload one source file and record why it matters to this tender." onClose={close}>
     <form onSubmit={submit} className="grid gap-4"><Field label="File"><input type="file" className={cn(inputClass, 'file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-xs')} onChange={e => setFile(e.target.files?.[0] ?? null)} data-testid="input-evidence-file"/>{file && <span className="text-xs text-muted-foreground">{file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</span>}</Field>
       <Field label="Evidence category"><select className={inputClass} value={category} onChange={e => setCategory(e.target.value)} data-testid="select-evidence-category">{categories.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></Field>
       <Field label="Notes / summary" hint="A short note helps reviewers understand the context."><textarea className={cn(inputClass, 'min-h-24 resize-y')} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Relevant sections, dates, or context" data-testid="textarea-evidence-notes"/></Field>
+      {category === 'tender_rfp' && <label className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-5"><input type="checkbox" checked={aiConsent} onChange={e => setAiConsent(e.target.checked)} className="mt-1 shrink-0" data-testid="checkbox-tender-extraction-consent"/><span>Automatically extract requirements after upload. I agree to send readable Tender / RFP text and notes to OpenAI through Replit AI Integrations, billed to my Replit credits. Results require human review and do not overwrite my saved brief.</span></label>}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="quiet" onClick={close}>Cancel</Button><Button type="submit" disabled={busy} data-testid="button-attach-evidence">{busy ? <LoaderCircle className="animate-spin" size={15}/> : <Upload size={15}/>}Upload and attach</Button></div>
+      <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="quiet" onClick={close} disabled={busy}>Cancel</Button><Button type="submit" disabled={busy || (category === 'tender_rfp' && !aiConsent)} data-testid="button-attach-evidence">{busy ? <LoaderCircle className="animate-spin" size={15}/> : <Upload size={15}/>}Upload{category === 'tender_rfp' ? ' & extract requirements' : ' and attach'}</Button></div>
     </form>
   </Dialog>;
 }
@@ -310,10 +309,11 @@ function ResearchDialog({ tenderId, close, onDone }: { tenderId: string; close: 
     <div className="mt-5 flex justify-end border-t border-border pt-4"><Button variant="quiet" onClick={close}>Close</Button></div>
   </Dialog>;
 }
-function ProposalPanel({ tender, proposals, loading, failed, onRetry, onGenerate, generating, error }: { tender: Tender; proposals: Proposal[]; loading: boolean; failed: boolean; onRetry: () => void; onGenerate: () => void; generating: boolean; error: string }) {
+function ProposalPanel({ tender, proposals, loading, failed, onRetry, onGenerate, generating, error, requirementsBlocked }: { tender: Tender; proposals: Proposal[]; loading: boolean; failed: boolean; onRetry: () => void; onGenerate: () => void; generating: boolean; error: string; requirementsBlocked: string }) {
   if (loading) return <PageSkeleton/>; if (failed) return <QueryError retry={onRetry}/>;
   const latest = (kind: string) => [...proposals].filter(p => p.kind === kind).sort((a, b) => b.version - a.version)[0]; const technical = latest('technical'); const commercial = latest('commercial'); const older = proposals.filter(p => p !== technical && p !== commercial).sort((a, b) => b.version - a.version);
-  return <section><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-primary">Separate drafts</p><h2 className="mt-1 font-[Manrope] text-xl font-bold">Technical & commercial proposals</h2><p className="mt-1 text-xs text-muted-foreground">Each draft is independently editable and exportable.</p></div><div className="flex flex-wrap gap-2"><ArchivePairButton tender={tender} technical={technical} commercial={commercial}/><Button onClick={onGenerate} disabled={generating} data-testid="button-generate-proposals">{generating ? <LoaderCircle size={15} className="animate-spin"/> : <Sparkles size={15}/>}Generate proposal pair</Button></div></div>
+  return <section><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-primary">Separate drafts</p><h2 className="mt-1 font-[Manrope] text-xl font-bold">Technical & commercial proposals</h2><p className="mt-1 text-xs text-muted-foreground">Each draft is independently editable and exportable.</p></div><div className="flex flex-wrap gap-2"><ArchivePairButton tender={tender} technical={technical} commercial={commercial}/><Button onClick={onGenerate} disabled={generating || !!requirementsBlocked} data-testid="button-generate-proposals">{generating ? <LoaderCircle size={15} className="animate-spin"/> : <Sparkles size={15}/>}Generate proposal pair</Button></div></div>
+    {requirementsBlocked && <p role="status" className="mt-4 rounded-lg border border-amber-900/20 bg-amber-900/5 p-3 text-xs text-amber-950">{requirementsBlocked}</p>}
     {error && <p className="mt-3 rounded-lg bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
     {!proposals.length ? <div className="mt-5"><EmptyState title="No proposal drafts yet" body="Generate a technical and a commercial draft separately after reviewing the content you want processed." icon={<FileText size={20}/>}/></div>
       : <div className="mt-5 grid gap-4 lg:grid-cols-2">{(['technical', 'commercial'] as const).map(kind => {

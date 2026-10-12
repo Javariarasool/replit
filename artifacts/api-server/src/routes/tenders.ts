@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, count } from "drizzle-orm";
+import { and, eq, count, sql } from "drizzle-orm";
 import { db, tendersTable, vendorSourcesTable, proposalsTable, evidenceTable } from "@workspace/db";
 import {
   GetDashboardSummaryResponse, ListTendersResponse, CreateTenderBody, CreateTenderResponse,
@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, ownedTender, tenderView, listTenderViews } from "../lib/tender-data";
 import { removeUnusedUpload } from "../lib/upload-cleanup";
+import { requirementsInFlight } from "../lib/tender-requirements";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -62,14 +63,29 @@ router.patch("/tenders/:tenderId", async (req, res): Promise<void> => {
   const params = UpdateTenderParams.safeParse(req.params);
   const body = UpdateTenderBody.safeParse(req.body);
   if (!params.success || !body.success) { res.status(400).json({ error: "Invalid tender details." }); return; }
-  const { closingDate, ...fields } = body.data;
+  const { closingDate, reviewedExtractionId, ...fields } = body.data;
+  const current = await ownedTender(params.data.tenderId, req.user!.id);
+  if (!current) { res.status(404).json({ error: "Tender not found." }); return; }
+  if (reviewedExtractionId && requirementsInFlight.has(req.user!.id)) {
+    res.status(409).json({ error: "Wait for the running extraction, then review the latest result." }); return;
+  }
+  if (reviewedExtractionId && (current.requirementsExtraction?.id !== reviewedExtractionId || !fields.requirements?.trim())) {
+    res.status(409).json({ error: "The extraction changed. Review the latest extracted requirements before applying them." }); return;
+  }
   const [tender] = await db.update(tendersTable).set({
     ...fields,
+    ...(reviewedExtractionId && current.requirementsExtraction ? {
+      requirementsExtraction: { ...current.requirementsExtraction, reviewedAt: new Date().toISOString() },
+    } : {}),
+    ...(!reviewedExtractionId && fields.requirements !== undefined && !fields.requirements.trim() && current.requirementsExtraction ? {
+      requirementsExtraction: { ...current.requirementsExtraction, reviewedAt: null },
+    } : {}),
     ...(closingDate !== undefined ? { closingDate: closingDate?.toISOString().slice(0, 10) ?? null } : {}),
     updatedAt: new Date(),
   })
-    .where(and(eq(tendersTable.id, params.data.tenderId), eq(tendersTable.ownerId, req.user!.id))).returning();
-  if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
+    .where(and(eq(tendersTable.id, params.data.tenderId), eq(tendersTable.ownerId, req.user!.id),
+      ...(reviewedExtractionId ? [sql`${tendersTable.requirementsExtraction}->>'id' = ${reviewedExtractionId}`] : []))).returning();
+  if (!tender) { res.status(409).json({ error: "The tender changed. Reload and review the latest extraction." }); return; }
   res.json(UpdateTenderResponse.parse(await tenderView(tender)));
 });
 

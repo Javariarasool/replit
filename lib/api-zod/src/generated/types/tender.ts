@@ -5,14 +5,16 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RequirementsExtraction } from './requirementsExtraction';
 import type { TenderInput } from './tenderInput';
 import type { TenderStatus } from './tenderStatus';
 
-export type Tender = TenderInput & {
+export type Tender = TenderInput & ({
   id: string;
   status: TenderStatus;
   evidenceCount: number;
   proposalCount: number;
   createdAt: Date;
   updatedAt: Date;
-};
+  requirementsExtraction?: RequirementsExtraction | null;
+});

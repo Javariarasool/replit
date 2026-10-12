@@ -1,0 +1,69 @@
+import { useEffect, useRef, useState } from 'react';
+import type { Evidence, Tender } from '@workspace/api-client-react';
+import { Check, ClipboardList, LoaderCircle, Sparkles } from 'lucide-react';
+import { Button, Dialog, Field, Pill, cn, inputClass } from './ui-kit';
+
+interface Props {
+  tender: Tender;
+  files: Evidence[];
+  saving: boolean;
+  extracting: boolean;
+  error: string;
+  onSave: (requirements: string, summary: string, reviewedExtractionId?: string) => void;
+  onExtract: () => void;
+  onUpload: () => void;
+}
+
+export function RequirementsPanel({ tender, files, saving, extracting, error, onSave, onExtract, onUpload }: Props) {
+  const [requirements, setRequirements] = useState(tender.requirements ?? '');
+  const [summary, setSummary] = useState(tender.summary ?? '');
+  const [reviewId, setReviewId] = useState<string>();
+  const [consentOpen, setConsentOpen] = useState(false);
+  const previous = useRef({ requirements: tender.requirements ?? '', summary: tender.summary ?? '' });
+  useEffect(() => {
+    const old = previous.current;
+    setRequirements(value => value === old.requirements ? tender.requirements ?? '' : value);
+    setSummary(value => value === old.summary ? tender.summary ?? '' : value);
+    previous.current = { requirements: tender.requirements ?? '', summary: tender.summary ?? '' };
+  }, [tender.requirements, tender.summary]);
+  const extraction = tender.requirementsExtraction;
+  const rfpFiles = files.filter(f => f.category === 'tender_rfp');
+  const changed = !!extraction && JSON.stringify(rfpFiles.map(f => f.id).sort()) !== JSON.stringify(extraction.sourceFiles.map(f => f.id).sort());
+  const pending = !!extraction && !extraction.reviewedAt;
+  const useExtraction = () => {
+    if (!extraction) return;
+    if ((requirements.trim() || summary.trim()) && !window.confirm('Load the extracted brief into the editor? This replaces the text currently in these fields. Your saved brief stays unchanged until you save.')) return;
+    setRequirements(extraction.requirements); setSummary(extraction.summary); setReviewId(extraction.id);
+  };
+  const save = () => {
+    onSave(requirements, summary, pending && reviewId === extraction?.id && !changed ? reviewId : undefined);
+  };
+  return <section className="space-y-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h2 className="font-[Manrope] text-xl font-bold">Requirements & context</h2><p className="mt-1 text-xs text-muted-foreground">Tender / RFP uploads are read automatically. Review the extracted clauses before using them in a proposal.</p></div>
+      <div className="flex gap-2"><Button variant="secondary" onClick={onUpload} disabled={extracting} data-testid="button-upload-tender">Upload tender</Button>
+        <Button onClick={() => setConsentOpen(true)} disabled={extracting || saving || !rfpFiles.length} data-testid="button-extract-requirements"><Sparkles size={15}/>{extraction ? 'Extract again' : 'Extract from tender'}</Button></div>
+    </div>
+    {extracting && <div role="status" className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm"><LoaderCircle size={18} className="animate-spin"/>Reading tender documents and extracting requirements. Your saved brief will not be overwritten.</div>}
+    {error && <p role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">{error}</p>}
+    {!rfpFiles.length && <p className="text-sm text-muted-foreground">Upload a Tender / RFP document to begin. Manual entry remains available below.</p>}
+    {extraction && <div className="rounded-xl border border-primary/20 bg-card p-5" data-testid="panel-extracted-requirements">
+      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold">Automatically extracted brief</h3><Pill tone={pending || changed ? 'amber' : 'blue'}>{changed ? 'Documents changed · extract again' : pending ? 'Human review required' : 'Reviewed'}</Pill></div>
+      <p className="mt-2 text-xs text-muted-foreground">Sources: {extraction.sourceFiles.map(f => f.name).join(', ')}. Check quantities, mandatory clauses, dates, forms and source references against the originals.</p>
+      {extraction.warnings.length > 0 && <div className="mt-3 rounded-lg bg-amber-900/5 p-3 text-xs text-amber-950"><p className="font-bold">Extraction warnings</p><ul className="mt-1 list-disc space-y-1 pl-4">{extraction.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></div>}
+      <p className="mt-4 text-sm leading-6">{extraction.summary}</p>
+      <pre className="mt-3 max-h-[440px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-secondary/40 p-4 font-sans text-sm leading-6" data-testid="text-extracted-requirements">{extraction.requirements}</pre>
+      <div className="mt-4 flex flex-wrap items-center gap-3"><Button variant="secondary" onClick={useExtraction} disabled={changed || extracting || saving} data-testid="button-use-extracted-requirements">Load into editor for review</Button><p className="text-xs text-muted-foreground">Existing edits are never replaced automatically. Saving the loaded brief records your review.</p></div>
+    </div>}
+    <div className="rounded-xl border border-border bg-card p-5 md:p-7"><div className="flex items-center gap-2"><ClipboardList size={18} className="text-primary"/><h3 className="text-sm font-bold">Working brief</h3></div>
+      {reviewId && pending && <p className="mt-3 text-xs text-primary">{reviewId === extraction?.id ? 'Extracted brief loaded. Correct any gaps below, then save to confirm your review.' : 'A newer extraction is available. Load and review it before saving approval.'}</p>}
+      <div className="mt-5 grid gap-5"><Field label="Requirements"><textarea className={cn(inputClass, 'min-h-[240px] resize-y leading-6')} value={requirements} onChange={e => setRequirements(e.target.value)} data-testid="textarea-requirements"/></Field>
+        <Field label="Summary"><textarea className={cn(inputClass, 'min-h-[88px] resize-y')} value={summary} onChange={e => setSummary(e.target.value)} data-testid="textarea-summary"/></Field></div>
+      <div className="mt-4 flex justify-end"><Button onClick={save} disabled={saving || extracting || (pending && !!reviewId && (reviewId !== extraction?.id || changed))} data-testid="button-save-requirements">{saving ? <LoaderCircle size={15} className="animate-spin"/> : <Check size={15}/>}Save brief{pending && reviewId === extraction?.id ? ' & confirm review' : ''}</Button></div>
+    </div>
+    {consentOpen && <Dialog title="Extract tender requirements" description="Read all documents attached in the Tender / RFP category." onClose={() => setConsentOpen(false)}>
+      <p className="text-sm leading-6">Readable tender text and its notes will be sent to OpenAI through Replit AI Integrations. AI usage is billed to your Replit credits. The result is saved for review; your working brief is not replaced automatically.</p>
+      <div className="mt-5 flex justify-end gap-2"><Button variant="quiet" onClick={() => setConsentOpen(false)}>Cancel</Button><Button data-testid="button-confirm-extraction" onClick={() => { setConsentOpen(false); onExtract(); }}>Agree and extract</Button></div>
+    </Dialog>}
+  </section>;
+}

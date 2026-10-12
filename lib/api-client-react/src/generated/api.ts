@@ -24,8 +24,10 @@ import type {
   BeginBrowserLoginParams,
   DashboardSummary,
   ErrorEnvelope,
+  ErrorResponse,
   Evidence,
   EvidenceInput,
+  ExtractRequirementsInput,
   GenerateProposalInput,
   HealthStatus,
   LibraryEntry,
@@ -957,6 +959,95 @@ export const useDeleteTender = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteTenderMutationOptions(options));
+    }
+
+export const getExtractTenderRequirementsUrl = (tenderId: string,) => {
+
+
+
+
+  return `/api/tenders/${tenderId}/requirements/extract`
+}
+
+/**
+ * @summary Extract a reviewable brief from this tender's uploaded RFP documents
+ */
+export const extractTenderRequirements = async (tenderId: string,
+    extractRequirementsInput: ExtractRequirementsInput, options?: Parameters<typeof customFetch>[1]): Promise<Tender> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Tender>(getExtractTenderRequirementsUrl(tenderId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(extractRequirementsInput)
+  }
+);}
+
+
+
+
+
+export const getExtractTenderRequirementsMutationKey = () => ['extractTenderRequirements'] as const;
+
+export const getExtractTenderRequirementsMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractTenderRequirements>>, TError,ExtractTenderRequirementsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extractTenderRequirements>>, TError,ExtractTenderRequirementsMutationVariables, TContext> => {
+
+const mutationKey = getExtractTenderRequirementsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extractTenderRequirements>>, ExtractTenderRequirementsMutationVariables> = (props) => {
+          const {tenderId,data} = props ?? {};
+
+          return  extractTenderRequirements(tenderId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExtractTenderRequirementsMutationResult = NonNullable<Awaited<ReturnType<typeof extractTenderRequirements>>>
+    export type ExtractTenderRequirementsMutationBody = BodyType<ExtractRequirementsInput>
+    export type ExtractTenderRequirementsMutationError = ErrorType<ErrorResponse>
+    export type ExtractTenderRequirementsMutationVariables = {tenderId: string;data: BodyType<ExtractRequirementsInput>}
+
+    /**
+ * @summary Extract a reviewable brief from this tender's uploaded RFP documents
+ */
+export const useExtractTenderRequirements = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractTenderRequirements>>, TError,ExtractTenderRequirementsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof extractTenderRequirements>>,
+        TError,
+        ExtractTenderRequirementsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExtractTenderRequirementsMutationOptions(options));
     }
 
 export const getListTenderEvidenceUrl = (tenderId: string,) => {

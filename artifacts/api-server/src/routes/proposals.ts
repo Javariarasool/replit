@@ -9,6 +9,7 @@ import {
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, ownedTender } from "../lib/tender-data";
 import { evidenceContext } from "../lib/documents";
+import { requirementsInFlight, sameTenderSources } from "../lib/tender-requirements";
 
 const router: IRouter = Router();
 const generating = new Set<string>();
@@ -33,6 +34,10 @@ router.post("/tenders/:tenderId/proposals/generate", async (req, res): Promise<v
   if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
   if (generating.has(ownerId)) { res.status(429).json({ error: "A proposal draft is already being generated. Please wait." }); return; }
   const files = await db.select().from(evidenceTable).where(eq(evidenceTable.tenderId, tender.id));
+  if (requirementsInFlight.has(ownerId)) { res.status(409).json({ error: "Tender requirements are still being extracted. Wait and review them before generating." }); return; }
+  if (tender.requirementsExtraction && (!tender.requirementsExtraction.reviewedAt || !sameTenderSources(files, tender.requirementsExtraction))) {
+    res.status(400).json({ error: "Review and apply the extracted requirements first. If tender documents changed, extract them again." }); return;
+  }
   const libraryIds = [...new Set(body.data.libraryEntryIds ?? [])];
   const library = libraryIds.length ? await db.select().from(proposalLibraryTable)
     .where(and(eq(proposalLibraryTable.ownerId, ownerId), inArray(proposalLibraryTable.id, libraryIds))) : [];
@@ -42,7 +47,9 @@ router.post("/tenders/:tenderId/proposals/generate", async (req, res): Promise<v
   }
   generating.add(ownerId);
   try {
-    const documents = await evidenceContext(files);
+    // Reviewed tender requirements already include source citations and mandatory forms.
+    // Avoid re-reading/OCR-billing the same RFP and exceeding evidence limits on long tenders.
+    const documents = await evidenceContext(tender.requirementsExtraction?.reviewedAt ? files.filter(f => f.category !== "tender_rfp") : files);
     const historicalGuidance = library.map(entry =>
       `HISTORICAL GUIDELINE ONLY: ${entry.title}\nAgency: ${entry.agency}\nSubmitted: ${entry.submissionDate ?? "unknown"}\nOutcome: ${entry.outcome}\nNotes: ${entry.notes}\nExtraction warnings: ${entry.extractionWarnings.join("; ")}\nTENDER EXCERPT:\n${entry.tenderText.slice(0, 5000)}\nTECHNICAL STYLE EXCERPT:\n${entry.technicalText.slice(0, 15000)}\nCOMMERCIAL STRUCTURE EXCERPT (NOT CURRENT PRICES):\n${entry.commercialText.slice(0, 15000)}\n[Only historical excerpts are supplied; do not infer omitted content.]`,
     ).join("\n\n---\n\n");

@@ -21,4 +21,5 @@ export interface TenderUpdate {
   summary?: string;
   requirements?: string;
   status?: TenderUpdateStatus;
+  reviewedExtractionId?: string;
 }

@@ -237,6 +237,27 @@ export interface TenderUpdate {
   summary?: string;
   requirements?: string;
   status?: TenderUpdateStatus;
+  reviewedExtractionId?: string;
+}
+
+export interface ExtractRequirementsInput {
+  aiConsent: true;
+}
+
+export type RequirementsExtractionSourceFilesItem = {
+  id: string;
+  name: string;
+};
+
+export interface RequirementsExtraction {
+  id: string;
+  requirements: string;
+  summary: string;
+  extractedAt: string;
+  /** @nullable */
+  reviewedAt: string | null;
+  warnings: string[];
+  sourceFiles: RequirementsExtractionSourceFilesItem[];
 }
 
 export type TenderStatus = typeof TenderStatus[keyof typeof TenderStatus];
@@ -249,14 +270,15 @@ export const TenderStatus = {
   submitted: 'submitted',
 } as const;
 
-export type Tender = TenderInput & {
+export type Tender = TenderInput & ({
   id: string;
   status: TenderStatus;
   evidenceCount: number;
   proposalCount: number;
   createdAt: string;
   updatedAt: string;
-};
+  requirementsExtraction?: RequirementsExtraction | null;
+});
 
 export type TenderDetail = Tender & {
   sourceCount: number;
@@ -434,6 +456,11 @@ export interface UploadUrlResponse {
   uploadURL: string;
   objectPath: string;
 }
+
+/**
+ * Request could not be completed
+ */
+export type ErrorResponse = ErrorEnvelope;
 
 export type BeginBrowserLoginParams = {
 returnTo?: string;

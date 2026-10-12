@@ -82,7 +82,19 @@ export const GetDashboardSummaryResponse = zod.object({
   "evidenceCount": zod.number().int(),
   "proposalCount": zod.number().int(),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
+  "updatedAt": zod.coerce.date(),
+  "requirementsExtraction": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "requirements": zod.string(),
+  "summary": zod.string(),
+  "extractedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "warnings": zod.array(zod.string()),
+  "sourceFiles": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+}))
+}),zod.null()]).optional()
 })))
 })
 
@@ -108,7 +120,19 @@ export const ListTendersResponseItem = zod.object({
   "evidenceCount": zod.number().int(),
   "proposalCount": zod.number().int(),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
+  "updatedAt": zod.coerce.date(),
+  "requirementsExtraction": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "requirements": zod.string(),
+  "summary": zod.string(),
+  "extractedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "warnings": zod.array(zod.string()),
+  "sourceFiles": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+}))
+}),zod.null()]).optional()
 }))
 export const ListTendersResponse = zod.array(ListTendersResponseItem)
 
@@ -148,7 +172,19 @@ export const CreateTenderResponse = zod.object({
   "evidenceCount": zod.number().int(),
   "proposalCount": zod.number().int(),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
+  "updatedAt": zod.coerce.date(),
+  "requirementsExtraction": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "requirements": zod.string(),
+  "summary": zod.string(),
+  "extractedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "warnings": zod.array(zod.string()),
+  "sourceFiles": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+}))
+}),zod.null()]).optional()
 }))
 
 
@@ -177,7 +213,19 @@ export const GetTenderResponse = zod.object({
   "evidenceCount": zod.number().int(),
   "proposalCount": zod.number().int(),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
+  "updatedAt": zod.coerce.date(),
+  "requirementsExtraction": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "requirements": zod.string(),
+  "summary": zod.string(),
+  "extractedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "warnings": zod.array(zod.string()),
+  "sourceFiles": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+}))
+}),zod.null()]).optional()
 })).and(zod.object({
   "sourceCount": zod.number().int(),
   "pendingReviewCount": zod.number().int()
@@ -203,7 +251,8 @@ export const UpdateTenderBody = zod.object({
   "closingDate": zod.coerce.date().nullish(),
   "summary": zod.string().optional(),
   "requirements": zod.string().optional(),
-  "status": zod.enum(['draft', 'in_progress', 'ready_for_review', 'submitted']).optional()
+  "status": zod.enum(['draft', 'in_progress', 'ready_for_review', 'submitted']).optional(),
+  "reviewedExtractionId": zod.string().uuid().optional()
 })
 
 
@@ -224,7 +273,19 @@ export const UpdateTenderResponse = zod.object({
   "evidenceCount": zod.number().int(),
   "proposalCount": zod.number().int(),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
+  "updatedAt": zod.coerce.date(),
+  "requirementsExtraction": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "requirements": zod.string(),
+  "summary": zod.string(),
+  "extractedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "warnings": zod.array(zod.string()),
+  "sourceFiles": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+}))
+}),zod.null()]).optional()
 }))
 
 
@@ -236,6 +297,51 @@ export const DeleteTenderParams = zod.object({
 })
 
 export const DeleteTenderResponse = zod.void()
+
+
+/**
+ * @summary Extract a reviewable brief from this tender's uploaded RFP documents
+ */
+export const ExtractTenderRequirementsParams = zod.object({
+  "tenderId": zod.coerce.string().uuid()
+})
+
+export const ExtractTenderRequirementsBody = zod.object({
+  "aiConsent": zod.literal(true)
+})
+
+
+
+
+
+export const ExtractTenderRequirementsResponse = zod.object({
+  "title": zod.string().min(1),
+  "agency": zod.string().min(1),
+  "referenceNumber": zod.string().nullish(),
+  "category": zod.enum(['hardware', 'networking', 'software', 'services', 'mixed']).optional(),
+  "closingDate": zod.coerce.date().nullish(),
+  "summary": zod.string().optional(),
+  "requirements": zod.string().optional()
+}).and(zod.object({
+  "id": zod.string().uuid(),
+  "status": zod.enum(['draft', 'in_progress', 'ready_for_review', 'submitted']),
+  "evidenceCount": zod.number().int(),
+  "proposalCount": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "requirementsExtraction": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "requirements": zod.string(),
+  "summary": zod.string(),
+  "extractedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "warnings": zod.array(zod.string()),
+  "sourceFiles": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+}))
+}),zod.null()]).optional()
+}))
 
 
 /**

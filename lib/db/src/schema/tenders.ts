@@ -3,6 +3,7 @@ import { relations } from "drizzle-orm";
 import {
   date,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -12,6 +13,16 @@ import {
 } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 import { usersTable } from "./auth";
+
+export interface RequirementsExtraction {
+  id: string;
+  requirements: string;
+  summary: string;
+  sourceFiles: { id: string; name: string }[];
+  warnings: string[];
+  extractedAt: string;
+  reviewedAt: string | null;
+}
 
 export const tendersTable = pgTable("tenders", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -25,6 +36,7 @@ export const tendersTable = pgTable("tenders", {
   closingDate: date("closing_date", { mode: "string" }),
   summary: text("summary").notNull().default(""),
   requirements: text("requirements").notNull().default(""),
+  requirementsExtraction: jsonb("requirements_extraction").$type<RequirementsExtraction>(),
   status: text("status").notNull().default("draft"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
