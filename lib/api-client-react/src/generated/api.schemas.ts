@@ -570,6 +570,68 @@ export interface RequirementSelectionInput {
   confirmed: true;
 }
 
+export type HistoricalPricePriceBasis = typeof HistoricalPricePriceBasis[keyof typeof HistoricalPricePriceBasis];
+
+
+export const HistoricalPricePriceBasis = {
+  unit: 'unit',
+  line_total: 'line_total',
+} as const;
+
+export type HistoricalPriceSourceType = typeof HistoricalPriceSourceType[keyof typeof HistoricalPriceSourceType];
+
+
+export const HistoricalPriceSourceType = {
+  past_proposal: 'past_proposal',
+  past_quotation: 'past_quotation',
+  supplier_record: 'supplier_record',
+} as const;
+
+export type HistoricalPriceMatchType = typeof HistoricalPriceMatchType[keyof typeof HistoricalPriceMatchType];
+
+
+export const HistoricalPriceMatchType = {
+  same_item: 'same_item',
+  possible_match: 'possible_match',
+} as const;
+
+export interface HistoricalPrice {
+  id: string;
+  item: string;
+  /** @nullable */
+  supplier: string | null;
+  /** @minimum 0 */
+  amount: number;
+  /** @nullable */
+  currency: string | null;
+  priceBasis: HistoricalPricePriceBasis;
+  /** @nullable */
+  quantity: number | null;
+  /** @nullable */
+  unit: string | null;
+  taxStatus: string;
+  sourceType: HistoricalPriceSourceType;
+  sourceTitle: string;
+  /** @nullable */
+  sourceDate: string | null;
+  dateLabel: string;
+  sourceQuote: string;
+  /** @nullable */
+  sourceTenderId: string | null;
+  /** @nullable */
+  libraryEntryId: string | null;
+  /** @nullable */
+  objectPath: string | null;
+  matchType: HistoricalPriceMatchType;
+  matchNotes: string;
+}
+
+export interface PriceHistory {
+  matches: HistoricalPrice[];
+  warnings: string[];
+  sourcesChecked: number;
+}
+
 export type RequirementItemReviewStatus = typeof RequirementItemReviewStatus[keyof typeof RequirementItemReviewStatus];
 
 

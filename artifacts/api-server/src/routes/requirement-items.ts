@@ -7,6 +7,7 @@ import {
   CreateRequirementItemBody, UpdateRequirementItemBody, ImportRequirementItemsBody,
   ResearchRequirementSuppliersBody, AddRequirementSupplierOptionBody, SelectRequirementSupplierBody,
   ListRequirementItemsResponse, CreateRequirementItemResponse, UpdateRequirementItemResponse,
+  GetRequirementPriceHistoryResponse,
 } from "@workspace/api-zod";
 import { ownedTender, requireAuth } from "../lib/tender-data";
 import { appendRequirementDrafts, requirementDraftSchema, requirementKey } from "../lib/requirement-items";
@@ -14,6 +15,7 @@ import { splitRequirementsBrief, sameTenderSources, requirementsInFlight } from 
 import { requirementsProcessing } from "../lib/requirements-jobs";
 import { EVALUATED_CARD_SCOPE, visibleRequirements } from "../lib/requirement-scope";
 import { publicSourceUrl, researchSuppliers, supplierOptionInputSchema } from "../lib/supplier-research";
+import { getHistoricalPrices } from "../lib/historical-prices";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -49,6 +51,16 @@ async function change(row: RequirementItem, fields: Partial<typeof requirementIt
   return updated;
 }
 
+router.get("/requirement-items/:requirementId/price-history", async (req, res): Promise<void> => {
+  const row = await ownedItem(req.params.requirementId as string, req.user!.id);
+  if (!row) { res.status(404).json({ error: "Requirement not found." }); return; }
+  try {
+    res.json(GetRequirementPriceHistoryResponse.parse(await getHistoricalPrices(row)));
+  } catch (error) {
+    req.log.warn({ errorName: error instanceof Error ? error.name : "Error" }, "Historical price comparison failed");
+    res.status(400).json({ error: "Could not load past prices. Your current quotation and supplier selection are unchanged." });
+  }
+});
 router.get("/tenders/:tenderId/requirement-items", async (req, res): Promise<void> => {
   const id = z.string().uuid().safeParse(req.params.tenderId);
   if (!id.success) { res.status(400).json({ error: "Invalid tender identifier." }); return; }

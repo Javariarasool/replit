@@ -367,6 +367,25 @@ paths:
       tags: [requirement-items]
       responses:
         "204": { description: Requirement removed; original evidence files retained. }
+  /requirement-items/{requirementId}/price-history:
+    get:
+      operationId: getRequirementPriceHistory
+      tags: [requirement-items]
+      summary: Compare matching item prices from this user's past proposals and quotations
+      parameters:
+        - name: requirementId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Historical references only; no current supplier price or selection is changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PriceHistory" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /requirement-items/{requirementId}/research:
     parameters:
       - name: requirementId
@@ -1129,6 +1148,36 @@ components:
       properties:
         optionId: { type: [string, "null"], format: uuid }
         confirmed: { type: boolean, enum: [true] }
+    HistoricalPrice:
+      type: object
+      required: [id, item, supplier, amount, currency, priceBasis, quantity, unit, taxStatus, sourceType, sourceTitle, sourceDate, dateLabel, sourceQuote, sourceTenderId, libraryEntryId, objectPath, matchType, matchNotes]
+      properties:
+        id: { type: string }
+        item: { type: string }
+        supplier: { type: [string, "null"] }
+        amount: { type: number, minimum: 0 }
+        currency: { type: [string, "null"] }
+        priceBasis: { type: string, enum: [unit, line_total] }
+        quantity: { type: [number, "null"] }
+        unit: { type: [string, "null"] }
+        taxStatus: { type: string }
+        sourceType: { type: string, enum: [past_proposal, past_quotation, supplier_record] }
+        sourceTitle: { type: string }
+        sourceDate: { type: [string, "null"] }
+        dateLabel: { type: string }
+        sourceQuote: { type: string }
+        sourceTenderId: { type: [string, "null"], format: uuid }
+        libraryEntryId: { type: [string, "null"], format: uuid }
+        objectPath: { type: [string, "null"] }
+        matchType: { type: string, enum: [same_item, possible_match] }
+        matchNotes: { type: string }
+    PriceHistory:
+      type: object
+      required: [matches, warnings, sourcesChecked]
+      properties:
+        matches: { type: array, items: { $ref: "#/components/schemas/HistoricalPrice" } }
+        warnings: { type: array, items: { type: string } }
+        sourcesChecked: { type: integer }
     RequirementItem:
       allOf:
         - $ref: "#/components/schemas/RequirementDraft"

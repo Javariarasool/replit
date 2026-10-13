@@ -14,3 +14,9 @@ The user stated: "most of the tenders are digitised".
 **Why:** The user wants past tenders and their corresponding proposals to guide new proposals, with human-provided evidence and official OEM information.
 
 **How to apply:** Keep historical proposal documents paired with their original tender and privately searchable. Treat past content as structure/style guidance, not proof of current bidder eligibility, current OEM capabilities or current pricing. New drafts must use current evidence and human-reviewed source claims.
+
+Historical item prices are also comparison references: "for quiting price we should check past proposals and quotations if same items are required for the active tender the prices from the past should also be shown."
+
+**Why:** The user wants matching historical prices visible while preparing a current quotation.
+
+**How to apply:** Show historical prices from the user's private proposals and quotations with provenance, dates where known, quantities, currency and price basis. Flag uncertain matches and distinguish unit rates from totals. Historical prices are not current valid supplier quotes and must not automatically replace the active tender's reviewed pricing.

@@ -1237,6 +1237,44 @@ export const DeleteRequirementItemParams = zod.object({
 export const DeleteRequirementItemResponse = zod.void()
 
 
+/**
+ * @summary Compare matching item prices from this user's past proposals and quotations
+ */
+export const GetRequirementPriceHistoryParams = zod.object({
+  "requirementId": zod.coerce.string().uuid()
+})
+
+export const getRequirementPriceHistoryResponseMatchesItemAmountMin = 0;
+
+
+
+export const GetRequirementPriceHistoryResponse = zod.object({
+  "matches": zod.array(zod.object({
+  "id": zod.string(),
+  "item": zod.string(),
+  "supplier": zod.string().nullable(),
+  "amount": zod.number().min(getRequirementPriceHistoryResponseMatchesItemAmountMin),
+  "currency": zod.string().nullable(),
+  "priceBasis": zod.enum(['unit', 'line_total']),
+  "quantity": zod.number().nullable(),
+  "unit": zod.string().nullable(),
+  "taxStatus": zod.string(),
+  "sourceType": zod.enum(['past_proposal', 'past_quotation', 'supplier_record']),
+  "sourceTitle": zod.string(),
+  "sourceDate": zod.string().nullable(),
+  "dateLabel": zod.string(),
+  "sourceQuote": zod.string(),
+  "sourceTenderId": zod.string().uuid().nullable(),
+  "libraryEntryId": zod.string().uuid().nullable(),
+  "objectPath": zod.string().nullable(),
+  "matchType": zod.enum(['same_item', 'possible_match']),
+  "matchNotes": zod.string()
+})),
+  "warnings": zod.array(zod.string()),
+  "sourcesChecked": zod.number().int()
+})
+
+
 export const ResearchRequirementSuppliersParams = zod.object({
   "requirementId": zod.coerce.string().uuid()
 })

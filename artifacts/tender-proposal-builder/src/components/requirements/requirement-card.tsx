@@ -8,6 +8,7 @@ import { EvidenceSection } from './evidence-section';
 import { OptionCard } from './option-card';
 import { ManualOptionDialog, SelectDialog } from './option-dialogs';
 import { RequirementFormDialog } from './requirement-form-dialog';
+import { PriceHistorySection } from './price-history-section';
 
 export function RequirementCard({ row, tender, files }: { row: RequirementItem; tender: Tender; files: Evidence[] }) {
   const update = useUpdateRequirementItem(); const del = useDeleteRequirementItem(); const research = useResearchRequirementSuppliers(); const select = useSelectRequirementSupplier();
@@ -50,6 +51,7 @@ export function RequirementCard({ row, tender, files }: { row: RequirementItem; 
     </div>
     {open && <div className="space-y-6 border-t border-border p-4">
       <EvidenceSection row={row} files={files}/>
+      {(row.requiresVendor || ['technical', 'commercial', 'delivery'].includes(row.category)) && <PriceHistorySection row={row}/>}
       {row.requiresVendor && <section className="space-y-3" data-testid={`section-suppliers-${row.id}`}>
         <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold">Supplier options</p><p className="text-xs text-muted-foreground">Suppliers must deliver in Pakistan. Prices are in PKR only. Candidates stay pending until you review them.</p></div><Button variant="secondary" disabled={busy || stale} onClick={() => setManual(true)} data-testid={`button-add-option-${row.id}`}>Add option or quotation</Button></div>
         {research.isPending && <div role="status" className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs">Searching the live web for candidates. This can take a minute.</div>}

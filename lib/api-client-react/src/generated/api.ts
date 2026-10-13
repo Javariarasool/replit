@@ -47,6 +47,7 @@ import type {
   LibraryEntryUpdate,
   ListProposalLibraryParams,
   LogoutBrowserSessionParams,
+  PriceHistory,
   Proposal,
   ProposalPair,
   ProposalUpdate,
@@ -1997,6 +1998,83 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getDeleteRequirementItemMutationOptions(options));
     }
+
+export const getGetRequirementPriceHistoryUrl = (requirementId: string,) => {
+
+
+
+
+  return `/api/requirement-items/${requirementId}/price-history`
+}
+
+/**
+ * @summary Compare matching item prices from this user's past proposals and quotations
+ */
+export const getRequirementPriceHistory = async (requirementId: string, options?: Parameters<typeof customFetch>[1]): Promise<PriceHistory> => {
+
+  return customFetch<PriceHistory>(getGetRequirementPriceHistoryUrl(requirementId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRequirementPriceHistoryQueryKey = (requirementId: string,) => {
+    return [
+    `/api/requirement-items/${requirementId}/price-history`
+    ] as const;
+    }
+
+
+export const getGetRequirementPriceHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getRequirementPriceHistory>>, TError = ErrorType<ErrorResponse>>(requirementId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRequirementPriceHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRequirementPriceHistoryQueryKey(requirementId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRequirementPriceHistory>>> = ({ signal }) => getRequirementPriceHistory(requirementId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: requirementId !== null && requirementId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRequirementPriceHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRequirementPriceHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getRequirementPriceHistory>>>
+export type GetRequirementPriceHistoryQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Compare matching item prices from this user's past proposals and quotations
+ */
+
+export function useGetRequirementPriceHistory<TData = Awaited<ReturnType<typeof getRequirementPriceHistory>>, TError = ErrorType<ErrorResponse>>(
+ requirementId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRequirementPriceHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRequirementPriceHistoryQueryOptions(requirementId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getResearchRequirementSuppliersUrl = (requirementId: string,) => {
 
