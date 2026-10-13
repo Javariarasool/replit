@@ -11,6 +11,7 @@ export type DocumentReadingActivityStatus = typeof DocumentReadingActivityStatus
 export const DocumentReadingActivityStatus = {
   queued: 'queued',
   running: 'running',
+  cancelled: 'cancelled',
   not_needed: 'not_needed',
   needs_review: 'needs_review',
   verified: 'verified',
@@ -37,6 +38,12 @@ export interface DocumentReadingActivity {
   reviewLinks: DocumentReadingLink[];
 }
 
+export interface ExtractionCancellation {
+  /** @minLength 1 */
+  objectPath: string;
+  jobId: string;
+}
+
 /**
  * Local recognition language. Omit to retain an existing extraction's language, or use English for a new extraction.
  */
@@ -52,6 +59,7 @@ export const OcrLanguage = {
 export interface ExtractionInput {
   /** @minLength 1 */
   objectPath: string;
+  /** Explicitly retry a failed or cancelled reading. Cancelled readings never restart automatically, including on language changes. */
   retry?: boolean;
   language?: OcrLanguage;
 }
@@ -81,6 +89,7 @@ export type DocumentExtractionStatus = typeof DocumentExtractionStatus[keyof typ
 export const DocumentExtractionStatus = {
   queued: 'queued',
   running: 'running',
+  cancelled: 'cancelled',
   not_needed: 'not_needed',
   needs_review: 'needs_review',
   verified: 'verified',
@@ -94,6 +103,7 @@ export type DocumentExtractionJobStatus = typeof DocumentExtractionJobStatus[key
 export const DocumentExtractionJobStatus = {
   queued: 'queued',
   running: 'running',
+  cancelled: 'cancelled',
   completed: 'completed',
   failed: 'failed',
 } as const;

@@ -100,6 +100,15 @@ test("scanned PDF has separate OCR and cannot draft until verified", async () =>
   assert.throws(() => draftingText({ ...scan, status: "rejected" }, "scanned.pdf"), /Verify/);
   assert.match(scan.ocrText, /quantity 24/); // review never mutates raw OCR
 });
+
+test("aborting after a recognized page never returns partial OCR", async () => {
+  const controller = new AbortController();
+  let recognized = false;
+  await assert.rejects(extractWithOcr(scannedPdf, "application/pdf", "scanned.pdf", "eng", async completed => {
+    if (completed > 0) { recognized = true; controller.abort(); }
+  }, controller.signal), /abort/i);
+  assert.equal(recognized, true);
+});
 test("production smoke fails closed when a required PDF/OCR tool is missing", {
   skip: !process.env.OCR_SMOKE_MISSING_TOOL,
 }, async () => {

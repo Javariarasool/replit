@@ -32,6 +32,7 @@ export * from './evidenceApplicabilityApplicability';
 export * from './evidenceApplicabilityProperty';
 export * from './evidenceInput';
 export * from './evidenceInputCategory';
+export * from './extractionCancellation';
 export * from './extractionInput';
 export * from './extractionReview';
 export * from './extractionReviewStatus';

@@ -11,3 +11,4 @@
 - [Consent dialog placement](dialog-placement.md) — transformed long pages can put inline fixed dialogs off-screen; keep viewport overlays outside animated containers.
 - [Company evidence validity](company-evidence-policy.md) — per-tender review, inclusive validity dates, and retained tender snapshots when library evidence is removed.
 - [Multilingual OCR fixtures](ocr-fixture-rendering.md) — explicitly register Arabic and Latin fonts; missing-glyph images can look like engine recognition failures.
+- [Extraction cancellation](extraction-cancellation.md) — cancellation needs explicit retry; wait for native process exit before cleanup, independent of result fencing.

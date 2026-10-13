@@ -1,13 +1,24 @@
 import { Router, type IRouter } from "express";
 import { and, eq } from "drizzle-orm";
 import { db, uploadsTable } from "@workspace/db";
-import { GetDocumentExtractionQueryParams, ExtractUploadedDocumentBody, ReviewDocumentExtractionBody, GetDocumentExtractionResponse, ExtractUploadedDocumentResponse, ReviewDocumentExtractionResponse, ListDocumentReadingActivityResponse } from "@workspace/api-zod";
+import { CancelDocumentExtractionBody, CancelDocumentExtractionResponse, GetDocumentExtractionQueryParams, ExtractUploadedDocumentBody, ReviewDocumentExtractionBody, GetDocumentExtractionResponse, ExtractUploadedDocumentResponse, ReviewDocumentExtractionResponse, ListDocumentReadingActivityResponse } from "@workspace/api-zod";
 import { requireAuth } from "../lib/tender-data";
-import { ensureExtraction, extractionPending } from "../lib/document-extractions";
+import { cancelExtraction, ExtractionConflictError, ExtractionNotFoundError, ensureExtraction, extractionPending } from "../lib/document-extractions";
 import { listDocumentReadingActivity } from "../lib/document-reading-activity";
 
 const router: IRouter = Router();
 router.use(requireAuth);
+router.post("/documents/extraction/cancel", async (req, res): Promise<void> => {
+  const body = CancelDocumentExtractionBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Provide the document path and reading ID." }); return; }
+  try {
+    res.json(CancelDocumentExtractionResponse.parse(await cancelExtraction(body.data.objectPath, req.user!.id, body.data.jobId)));
+  } catch (error) {
+    if (error instanceof ExtractionNotFoundError) { res.status(404).json({ error: error.message }); return; }
+    if (error instanceof ExtractionConflictError) { res.status(409).json({ error: error.message }); return; }
+    throw error;
+  }
+});
 router.get("/documents/activity", async (req, res): Promise<void> => {
   res.json(ListDocumentReadingActivityResponse.parse(await listDocumentReadingActivity(req.user!.id)));
 });

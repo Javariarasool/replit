@@ -12,12 +12,15 @@ const LEASE_MS = 60000;
 let localWorkers = 0;
 let pumping = false;
 let timer: ReturnType<typeof setInterval> | undefined;
+// Key by attempt token, not document path: a retry must not inherit cancellation.
+const activeAttempts = new Map<string, AbortController>();
 
 export function extractionPending(extraction: DocumentExtraction): boolean {
   return extraction.status === "queued" || extraction.status === "running";
 }
 
 export function shouldRetryExtraction(extraction: DocumentExtraction, requested = false): boolean {
+  if (extraction.status === "cancelled") return requested;
   return extraction.status === "failed" && (requested ||
     /spawn (?:pdfimages|pdftoppm|tesseract) ENOENT|required PDF\/OCR tool .* unavailable/i.test(extraction.error ?? ""));
 }
@@ -39,6 +42,7 @@ export async function ensureExtraction(objectPath: string, ownerId: string, retr
     if (!upload) throw new Error("Document not found.");
     const current = upload.extraction;
     const language = requestedLanguage ?? current?.language ?? "eng";
+    if (current?.status === "cancelled" && !retry) return current;
     if (current && extractionPending(current)) {
       if (language !== (current.language ?? "eng")) throw new Error("This document is already being read in another language. Wait for it to finish before changing languages.");
       return current;
@@ -50,6 +54,34 @@ export async function ensureExtraction(objectPath: string, ownerId: string, retr
       current ? eq(uploadsTable.extraction, current) : isNull(uploadsTable.extraction),
     )).returning();
     if (rows.length) { if (timer) void pump(); return extraction; }
+  }
+}
+
+export class ExtractionConflictError extends Error {}
+export class ExtractionNotFoundError extends Error {}
+
+export async function cancelExtraction(objectPath: string, ownerId: string, jobId: string): Promise<DocumentExtraction> {
+  // Progress and heartbeat updates can race this CAS; reread until one wins.
+  for (;;) {
+    const [upload] = await db.select().from(uploadsTable).where(and(eq(uploadsTable.objectPath, objectPath), eq(uploadsTable.ownerId, ownerId)));
+    if (!upload) throw new ExtractionNotFoundError("Document not found.");
+    const current = upload.extraction;
+    if (!current?.job || current.job.id !== jobId) throw new ExtractionConflictError("The reading changed. Reload before cancelling.");
+    if (current.status === "cancelled") return current;
+    if (!extractionPending(current)) throw new ExtractionConflictError("This reading has already finished.");
+    const extraction: DocumentExtraction = {
+      ...current, status: "cancelled", sourceText: "", ocrText: "", pages: [],
+      confidence: null, reviewedText: null, reviewedAt: null, error: null,
+      job: { ...current.job, status: "cancelled", stage: "Reading cancelled",
+        finishedAt: new Date().toISOString(), token: null, leaseUntil: null },
+    };
+    const rows = await db.update(uploadsTable).set({ extraction }).where(and(
+      eq(uploadsTable.objectPath, objectPath), eq(uploadsTable.ownerId, ownerId),
+      eq(uploadsTable.extraction, current),
+    )).returning({ path: uploadsTable.objectPath });
+    if (!rows.length) continue;
+    if (current.job.token) activeAttempts.get(current.job.token)?.abort();
+    return extraction;
   }
 }
 
@@ -79,16 +111,29 @@ export async function runExtractionJob(upload: NonNullable<Awaited<ReturnType<ty
   const fence = and(eq(uploadsTable.objectPath, upload.objectPath), eq(uploadsTable.ownerId, upload.ownerId),
     sql`extraction->>'status' = 'running' and extraction->'job'->>'token' = ${job.token}`);
   let leaseLost = false;
-  const heartbeat = setInterval(() => {
-    void db.update(uploadsTable).set({ extraction: sql`jsonb_set(extraction, '{job,leaseUntil}', to_jsonb(${new Date(Date.now() + LEASE_MS).toISOString()}::text))` })
-      .where(fence).returning({ path: uploadsTable.objectPath }).then(rows => { if (!rows.length) leaseLost = true; })
-      .catch(() => { leaseLost = true; });
-  }, 10000);
+  const controller = new AbortController();
+  activeAttempts.set(job.token!, controller);
+  let checking = false;
+  const checkLease = async () => {
+    if (checking) return;
+    checking = true;
+    try {
+      const rows = await db.update(uploadsTable).set({ extraction: sql`jsonb_set(extraction, '{job,leaseUntil}', to_jsonb(${new Date(Date.now() + LEASE_MS).toISOString()}::text))` })
+        .where(fence).returning({ path: uploadsTable.objectPath });
+      if (!rows.length) { leaseLost = true; controller.abort(); }
+    } catch { leaseLost = true; controller.abort(); }
+    finally { checking = false; }
+  };
+  // Also observe cancellation made in another API process while native OCR runs.
+  const heartbeat = setInterval(() => void checkLease(), 1000);
   try {
+    await checkLease();
+    controller.signal.throwIfAborted();
     const object = await storage.getObjectEntityFile(upload.objectPath);
     const [metadata] = await object.getMetadata();
     if (Number(metadata.size) > MAX_DOCUMENT_BYTES) throw new Error("Documents must be 25 MB or smaller.");
     const [buffer] = await object.download();
+    controller.signal.throwIfAborted();
     const extraction = await extractWithOcr(buffer, upload.contentType, upload.name, upload.extraction.language, async (completed, total, stage) => {
       if (leaseLost) throw new Error("Worker lease expired; reading will resume in the background.");
       job.completedPages = completed; job.totalPages = total; job.stage = stage;
@@ -96,20 +141,20 @@ export async function runExtractionJob(upload: NonNullable<Awaited<ReturnType<ty
         jsonb_set(jsonb_set(jsonb_set(extraction, '{job,completedPages}', to_jsonb(${completed}::int)),
           '{job,totalPages}', to_jsonb(${total}::int)), '{job,stage}', to_jsonb(${stage}::text))` })
         .where(fence).returning({ path: uploadsTable.objectPath });
-      if (!rows.length) { leaseLost = true; throw new Error("Worker lease lost."); }
-    });
-    if (leaseLost) return;
+      if (!rows.length) { leaseLost = true; controller.abort(); throw new Error("Worker lease lost."); }
+    }, controller.signal);
+    if (leaseLost || controller.signal.aborted) return;
     extraction.job = { ...job, status: extraction.status === "failed" ? "failed" : "completed",
       stage: extraction.status === "failed" ? "Reading failed" : "Reading completed",
       finishedAt: new Date().toISOString(), leaseUntil: null, token: null };
     await db.update(uploadsTable).set({ extraction }).where(fence);
   } catch (error) {
-    if (leaseLost) return;
+    if (leaseLost || controller.signal.aborted) return;
     const extraction: DocumentExtraction = { ...upload.extraction, status: "failed",
       error: error instanceof Error ? error.message : "Local extraction failed.",
       job: { ...job, status: "failed", stage: "Reading failed", finishedAt: new Date().toISOString(), leaseUntil: null, token: null } };
     await db.update(uploadsTable).set({ extraction }).where(fence);
-  } finally { clearInterval(heartbeat); }
+  } finally { clearInterval(heartbeat); activeAttempts.delete(job.token!); }
 }
 
 async function pump() {
@@ -140,6 +185,7 @@ export class OcrReviewRequiredError extends Error {
 }
 
 export function draftingText(extraction: DocumentExtraction, name: string): string {
+  if (extraction.status === "cancelled") throw new OcrReviewRequiredError(`Reading "${name}" was cancelled. Retry reading it before extracting requirements or drafting.`);
   if (extractionPending(extraction)) throw new OcrReviewRequiredError(`"${name}" is still being read in the background. Wait for completion and verify any OCR before drafting.`);
   if (extraction.status === "needs_review" || extraction.status === "rejected") throw new OcrReviewRequiredError(`Verify the OCR for "${name}" against its original before extracting requirements or drafting a proposal.`);
   if (extraction.status === "failed") throw new Error(`Extraction failed for "${name}": ${extraction.error}`);

@@ -12,6 +12,7 @@ export type DocumentReadingActivityStatus = typeof DocumentReadingActivityStatus
 export const DocumentReadingActivityStatus = {
   queued: 'queued',
   running: 'running',
+  cancelled: 'cancelled',
   not_needed: 'not_needed',
   needs_review: 'needs_review',
   verified: 'verified',

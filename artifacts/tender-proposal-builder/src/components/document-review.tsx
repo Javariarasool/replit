@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useGetDocumentExtraction, useExtractUploadedDocument, useReviewDocumentExtraction, getGetDocumentExtractionQueryKey, getListProposalLibraryQueryKey, type OcrLanguage } from '@workspace/api-client-react';
+import { useGetDocumentExtraction, useExtractUploadedDocument, useReviewDocumentExtraction, useCancelDocumentExtraction, getListDocumentReadingActivityQueryKey, getGetDocumentExtractionQueryKey, getListProposalLibraryQueryKey, type OcrLanguage } from '@workspace/api-client-react';
 import { Button, Dialog, Pill, cn, inputClass, errorText } from '@/components/ui-kit';
 import { objectUrl } from '@/components/library/shared';
 
@@ -15,11 +15,12 @@ export function DocumentReview({ path }: { path: string }) {
     refetchInterval: query => ['queued', 'running'].includes(query.state.data?.status ?? '') ? 2000 : false,
   } });
   const extract = useExtractUploadedDocument(); const review = useReviewDocumentExtraction();
+  const cancel = useCancelDocumentExtraction();
   const [open, setOpen] = useState(false); const [text, setText] = useState(''); const [confirmed, setConfirmed] = useState(false); const [search, setSearch] = useState('');
   const data = query.data;
   const pending = data?.status === 'queued' || data?.status === 'running';
   useEffect(() => {
-    if (data?.job?.status === 'completed' || data?.job?.status === 'failed') {
+    if (data?.job?.status === 'completed' || data?.job?.status === 'failed' || data?.job?.status === 'cancelled') {
       void qc.invalidateQueries({ queryKey: getListProposalLibraryQueryKey() });
     }
   }, [data?.job?.id, data?.job?.status, qc]);
@@ -27,10 +28,16 @@ export function DocumentReview({ path }: { path: string }) {
   const [reviewLanguage, setReviewLanguage] = useState<OcrLanguage>('eng');
   const language = languageChoice ?? data?.language ?? 'eng';
   const languageChanged = !!data && language !== (data.language ?? 'eng');
-  const refresh = () => { void qc.invalidateQueries({ queryKey: getGetDocumentExtractionQueryKey({ objectPath: path }) }); void qc.invalidateQueries({ queryKey: getListProposalLibraryQueryKey() }); };
-  const readDocument = () => extract.mutate({ data: { objectPath: path, retry: data?.status === 'failed', language } }, { onSuccess: result => {
+  const refresh = () => { void qc.invalidateQueries({ queryKey: getGetDocumentExtractionQueryKey({ objectPath: path }) }); void qc.invalidateQueries({ queryKey: getListProposalLibraryQueryKey() }); void qc.invalidateQueries({ queryKey: getListDocumentReadingActivityQueryKey() }); };
+  const cancelReading = () => {
+    if (!data?.job) return;
+    cancel.mutate({ data: { objectPath: path, jobId: data.job.id } }, { onSuccess: result => {
+      qc.setQueryData(getGetDocumentExtractionQueryKey({ objectPath: path }), result); setOpen(false); setText(''); refresh();
+    }, onError: refresh });
+  };
+  const readDocument = () => { cancel.reset(); extract.mutate({ data: { objectPath: path, retry: data?.status === 'failed' || data?.status === 'cancelled', language } }, { onSuccess: result => {
     qc.setQueryData(getGetDocumentExtractionQueryKey({ objectPath: path }), result); refresh();
-  } });
+  } }); };
   const startReview = () => { setText(data?.reviewedText ?? data?.ocrText ?? ''); setReviewLanguage(data?.language ?? 'eng'); setConfirmed(false); review.reset(); setOpen(true); };
   const save = (status: 'verified' | 'rejected') => review.mutate({ data: { objectPath: path, status, confirmed, reviewedText: text, language: reviewLanguage } }, { onSuccess: () => { refresh(); setOpen(false); } });
   return <div className="mt-3 border-t border-border pt-3 text-xs">
@@ -45,12 +52,16 @@ export function DocumentReview({ path }: { path: string }) {
     </div>}
     {query.isLoading ? <p className="mt-2">Loading extraction…</p> : query.isError ? <Button variant="quiet" onClick={() => void query.refetch()}>Retry loading extraction</Button> : !data ? <div className="mt-2"><p>Not yet extracted. {OCR_NOTE}</p><Button className="mt-2 text-xs" disabled={extract.isPending} onClick={readDocument}>{extract.isPending ? 'Reading document…' : 'Read document with local OCR'}</Button></div> :
       <div className="mt-2 space-y-2">
-        <div className="flex flex-wrap items-center gap-2"><Pill tone={data.status === 'verified' ? 'green' : data.status === 'not_needed' ? 'neutral' : 'amber'}>{({ queued: 'Queued for background reading', running: 'Reading in background', not_needed: 'Embedded source text', needs_review: 'OCR — needs human review', verified: 'OCR — human verified', rejected: 'OCR — rejected, excluded from drafts', failed: 'Extraction failed' })[data.status]}</Pill>
+        <div className="flex flex-wrap items-center gap-2"><Pill tone={data.status === 'verified' ? 'green' : data.status === 'not_needed' ? 'neutral' : 'amber'}>{({ queued: 'Queued for background reading', running: 'Reading in background', cancelled: 'Reading cancelled', not_needed: 'Embedded source text', needs_review: 'OCR — needs human review', verified: 'OCR — human verified', rejected: 'OCR — rejected, excluded from drafts', failed: 'Extraction failed' })[data.status]}</Pill>
           {data.confidence !== null && <span>OCR confidence: {data.confidence}% (not factual accuracy)</span>}</div>
         {data.error && <p className="text-amber-900">{data.error}</p>}
         {pending && <div role="status" className="space-y-1"><p>{data.job?.stage ?? 'Waiting for a worker'}{data.job?.totalPages != null && data.job.totalPages > 0 ? ` · ${data.job.completedPages} of ${data.job.totalPages} scanned pages read` : ''}</p>
           {data.job?.totalPages != null && data.job.totalPages > 0 && <progress aria-label="Document reading progress" className="w-full" value={data.job.completedPages} max={data.job.totalPages}/>}
-          <p>You can leave this page. Reading resumes automatically after a server restart; interrupted pages may be read again. No partial text is available for drafts.</p></div>}
+          <p>You can leave this page. Reading resumes automatically after a server restart; interrupted pages may be read again. No partial text is available for drafts.</p>
+          <p>Cancelling stops this reading, not the saved original. You can retry later.</p>
+          {data.job && <Button variant="secondary" className="text-xs" disabled={cancel.isPending} onClick={cancelReading}>{cancel.isPending ? 'Cancelling reading…' : 'Cancel reading'}</Button>}</div>}
+        {data.status === 'cancelled' && <div role="status"><p>Reading cancelled. Your original remains saved. No partial text is available for search, review or drafts. Reading will not restart unless you retry.</p>
+          {!languageChanged && <Button className="mt-2 text-xs" disabled={extract.isPending} onClick={readDocument}>{extract.isPending ? 'Queueing document…' : 'Retry local extraction'}</Button>}</div>}
         {data.job?.status === 'completed' && <p>Background reading completed.</p>}
         {data.confidence !== null && data.confidence < 80 && <p className="text-amber-900">Low recognition confidence. Check this scan especially carefully; confidence never verifies facts.</p>}
         {data.reviewedAt && <p>Reviewed {new Date(data.reviewedAt).toLocaleString()}</p>}
@@ -59,9 +70,10 @@ export function DocumentReview({ path }: { path: string }) {
         {data.status !== 'not_needed' && <p>{data.engine}. OCR text is separate from source text and the original file.</p>}
         {['needs_review', 'verified', 'rejected'].includes(data.status) && <Button variant="secondary" className="text-xs" disabled={extract.isPending} onClick={startReview}>Review OCR against original</Button>}
         {data.status === 'failed' && <div><p>Upload a clearer or smaller document, add human evidence notes, or retry a temporary extraction failure.</p>{!languageChanged && <Button className="mt-2 text-xs" disabled={extract.isPending} onClick={readDocument}>{extract.isPending ? 'Reading document…' : 'Retry local extraction'}</Button>}</div>}
-        {!pending && <details><summary className="cursor-pointer font-semibold">Search / inspect extracted text</summary><input dir="auto" className={cn(inputClass, 'mt-2')} placeholder="Find in extracted text" aria-label="Find in extracted text" value={search} onChange={event => setSearch(event.target.value)}/><pre dir="auto" className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap bg-background p-3 [unicode-bidi:plaintext]">{`EMBEDDED SOURCE TEXT:\n${data.sourceText}\nRAW OCR (not verified):\n${data.ocrText}\nHUMAN-REVIEWED OCR:\n${data.reviewedText ?? ''}`.split('\n').filter(line => !search || line.toLowerCase().includes(search.toLowerCase())).join('\n')}</pre></details>}
+        {!pending && data.status !== 'cancelled' && data.status !== 'failed' && <details><summary className="cursor-pointer font-semibold">Search / inspect extracted text</summary><input dir="auto" className={cn(inputClass, 'mt-2')} placeholder="Find in extracted text" aria-label="Find in extracted text" value={search} onChange={event => setSearch(event.target.value)}/><pre dir="auto" className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap bg-background p-3 [unicode-bidi:plaintext]">{`EMBEDDED SOURCE TEXT:\n${data.sourceText}\nRAW OCR (not verified):\n${data.ocrText}\nHUMAN-REVIEWED OCR:\n${data.reviewedText ?? ''}`.split('\n').filter(line => !search || line.toLowerCase().includes(search.toLowerCase())).join('\n')}</pre></details>}
       </div>}
     {extract.isError && <p className="mt-2 text-destructive">{errorText(extract.error)}</p>}
+    {cancel.isError && <p role="alert" className="mt-2 text-destructive">{errorText(cancel.error)}</p>}
     {open && data && <Dialog wide title="Verify OCR text" description="Check every page, number, unit and table against the original. Correct errors below; the raw OCR and source text will remain unchanged." onClose={() => setOpen(false)}>
       <div className="space-y-3"><a className="font-semibold text-primary underline" href={objectUrl(path)} target="_blank" rel="noreferrer">Open original in a new tab</a>
         <p>Recognition language used: {LANGUAGE_LABELS[reviewLanguage]}</p>

@@ -2052,7 +2052,7 @@ export const ListDocumentReadingActivityResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "objectPath": zod.string(),
-  "status": zod.enum(['queued', 'running', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "status": zod.enum(['queued', 'running', 'cancelled', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
   "completedPages": zod.number().int(),
   "totalPages": zod.number().int().nullable(),
   "queuedAt": zod.string(),
@@ -2079,7 +2079,7 @@ export const GetDocumentExtractionResponse = zod.union([zod.object({
   "sourceText": zod.string(),
   "ocrText": zod.string(),
   "confidence": zod.number().nullable(),
-  "status": zod.enum(['queued', 'running', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "status": zod.enum(['queued', 'running', 'cancelled', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
   "error": zod.string().nullable(),
   "reviewedText": zod.string().nullable(),
   "reviewedAt": zod.string().nullable(),
@@ -2087,7 +2087,7 @@ export const GetDocumentExtractionResponse = zod.union([zod.object({
   "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.'),
   "job": zod.object({
   "id": zod.string(),
-  "status": zod.enum(['queued', 'running', 'completed', 'failed']),
+  "status": zod.enum(['queued', 'running', 'cancelled', 'completed', 'failed']),
   "completedPages": zod.number().int(),
   "totalPages": zod.number().int().nullable(),
   "stage": zod.string(),
@@ -2110,7 +2110,7 @@ export const extractUploadedDocumentBodyRetryDefault = false;
 
 export const ExtractUploadedDocumentBody = zod.object({
   "objectPath": zod.string().min(1),
-  "retry": zod.boolean().default(extractUploadedDocumentBodyRetryDefault),
+  "retry": zod.boolean().default(extractUploadedDocumentBodyRetryDefault).describe('Explicitly retry a failed or cancelled reading. Cancelled readings never restart automatically, including on language changes.'),
   "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.')
 })
 
@@ -2118,7 +2118,7 @@ export const ExtractUploadedDocumentResponse = zod.object({
   "sourceText": zod.string(),
   "ocrText": zod.string(),
   "confidence": zod.number().nullable(),
-  "status": zod.enum(['queued', 'running', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "status": zod.enum(['queued', 'running', 'cancelled', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
   "error": zod.string().nullable(),
   "reviewedText": zod.string().nullable(),
   "reviewedAt": zod.string().nullable(),
@@ -2126,7 +2126,7 @@ export const ExtractUploadedDocumentResponse = zod.object({
   "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.'),
   "job": zod.object({
   "id": zod.string(),
-  "status": zod.enum(['queued', 'running', 'completed', 'failed']),
+  "status": zod.enum(['queued', 'running', 'cancelled', 'completed', 'failed']),
   "completedPages": zod.number().int(),
   "totalPages": zod.number().int().nullable(),
   "stage": zod.string(),
@@ -2161,7 +2161,7 @@ export const ReviewDocumentExtractionResponse = zod.object({
   "sourceText": zod.string(),
   "ocrText": zod.string(),
   "confidence": zod.number().nullable(),
-  "status": zod.enum(['queued', 'running', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "status": zod.enum(['queued', 'running', 'cancelled', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
   "error": zod.string().nullable(),
   "reviewedText": zod.string().nullable(),
   "reviewedAt": zod.string().nullable(),
@@ -2169,7 +2169,45 @@ export const ReviewDocumentExtractionResponse = zod.object({
   "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.'),
   "job": zod.object({
   "id": zod.string(),
-  "status": zod.enum(['queued', 'running', 'completed', 'failed']),
+  "status": zod.enum(['queued', 'running', 'cancelled', 'completed', 'failed']),
+  "completedPages": zod.number().int(),
+  "totalPages": zod.number().int().nullable(),
+  "stage": zod.string(),
+  "queuedAt": zod.string(),
+  "finishedAt": zod.string().nullable()
+}).optional(),
+  "pages": zod.array(zod.object({
+  "page": zod.number().int(),
+  "text": zod.string(),
+  "confidence": zod.number().nullable()
+}))
+})
+
+
+/**
+ * @summary Cancel an owned queued or running reading without deleting its original
+ */
+
+
+
+export const CancelDocumentExtractionBody = zod.object({
+  "objectPath": zod.string().min(1),
+  "jobId": zod.string().uuid()
+})
+
+export const CancelDocumentExtractionResponse = zod.object({
+  "sourceText": zod.string(),
+  "ocrText": zod.string(),
+  "confidence": zod.number().nullable(),
+  "status": zod.enum(['queued', 'running', 'cancelled', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "error": zod.string().nullable(),
+  "reviewedText": zod.string().nullable(),
+  "reviewedAt": zod.string().nullable(),
+  "engine": zod.string(),
+  "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.'),
+  "job": zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['queued', 'running', 'cancelled', 'completed', 'failed']),
   "completedPages": zod.number().int(),
   "totalPages": zod.number().int().nullable(),
   "stage": zod.string(),

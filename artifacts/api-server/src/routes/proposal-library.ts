@@ -33,6 +33,7 @@ router.get("/proposal-library", async (req, res): Promise<void> => {
     const term = `%${params.data.q.trim().replace(/[%_\\]/g, "\\$&")}%`;
     filters.push(or(sql`exists (select 1 from document_uploads u where u.owner_id = ${req.user!.id}
       and u.object_path in (${proposalLibraryTable.tenderObjectPath}, ${proposalLibraryTable.technicalObjectPath}, ${proposalLibraryTable.commercialObjectPath})
+      and u.extraction->>'status' in ('not_needed', 'needs_review', 'verified', 'rejected')
       and (u.extraction->>'sourceText' ilike ${term} or u.extraction->>'ocrText' ilike ${term} or u.extraction->>'reviewedText' ilike ${term}))`, ...[
       proposalLibraryTable.title, proposalLibraryTable.tenderTitle, proposalLibraryTable.agency,
       proposalLibraryTable.referenceNumber, proposalLibraryTable.versionLabel, proposalLibraryTable.notes, proposalLibraryTable.tenderText,
@@ -82,6 +83,10 @@ router.post("/proposal-library", async (req, res): Promise<void> => {
         try {
           const extraction = await ensureExtraction(path, ownerId);
           const text = extraction.sourceText;
+          if (extraction.status === "cancelled") {
+            warnings.push(`${label}: reading cancelled. Original preserved; retry explicitly to read it.`);
+            return "";
+          }
           if (extraction.status === "failed") warnings.push(`${label}: ${extraction.error} Original preserved; review extraction details.`);
           if (!["queued", "running"].includes(extraction.status) && !text.trim() && !extraction.ocrText.trim()) warnings.push(`${label}: no readable text found. Add notes or a clearer document.`);
           if (text.length > 500000) {

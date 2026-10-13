@@ -10,6 +10,7 @@ import type { OcrLanguage } from './ocrLanguage';
 export interface ExtractionInput {
   /** @minLength 1 */
   objectPath: string;
+  /** Explicitly retry a failed or cancelled reading. Cancelled readings never restart automatically, including on language changes. */
   retry?: boolean;
   language?: OcrLanguage;
 }

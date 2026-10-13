@@ -798,6 +798,30 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/DocumentExtraction" }
+  /documents/extraction/cancel:
+    post:
+      operationId: cancelDocumentExtraction
+      tags: [evidence]
+      summary: Cancel an owned queued or running reading without deleting its original
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExtractionCancellation" }
+      responses:
+        "200":
+          description: Cancelled reading. Repeating cancellation of the same attempt is safe.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentExtraction" }
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
 components:
   responses:
     Error:
@@ -824,7 +848,7 @@ components:
         id: { type: string }
         name: { type: string }
         objectPath: { type: string }
-        status: { type: string, enum: [queued, running, not_needed, needs_review, verified, rejected, failed] }
+        status: { type: string, enum: [queued, running, cancelled, not_needed, needs_review, verified, rejected, failed] }
         completedPages: { type: integer }
         totalPages: { type: [integer, "null"] }
         queuedAt: { type: string }
@@ -838,12 +862,21 @@ components:
       properties:
         label: { type: string }
         href: { type: string }
+    ExtractionCancellation:
+      type: object
+      required: [objectPath, jobId]
+      properties:
+        objectPath: { type: string, minLength: 1 }
+        jobId: { type: string, format: uuid }
     ExtractionInput:
       type: object
       required: [objectPath]
       properties:
         objectPath: { type: string, minLength: 1 }
-        retry: { type: boolean, default: false }
+        retry:
+          type: boolean
+          default: false
+          description: Explicitly retry a failed or cancelled reading. Cancelled readings never restart automatically, including on language changes.
         language:
           $ref: "#/components/schemas/OcrLanguage"
     OcrLanguage:
@@ -868,7 +901,7 @@ components:
         sourceText: { type: string }
         ocrText: { type: string }
         confidence: { type: [number, "null"] }
-        status: { type: string, enum: [queued, running, not_needed, needs_review, verified, rejected, failed] }
+        status: { type: string, enum: [queued, running, cancelled, not_needed, needs_review, verified, rejected, failed] }
         error: { type: [string, "null"] }
         reviewedText: { type: [string, "null"] }
         reviewedAt: { type: [string, "null"] }
@@ -880,7 +913,7 @@ components:
           required: [id, status, completedPages, totalPages, stage, queuedAt, finishedAt]
           properties:
             id: { type: string }
-            status: { type: string, enum: [queued, running, completed, failed] }
+            status: { type: string, enum: [queued, running, cancelled, completed, failed] }
             completedPages: { type: integer }
             totalPages: { type: [integer, "null"] }
             stage: { type: string }

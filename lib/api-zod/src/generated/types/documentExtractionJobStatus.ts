@@ -12,6 +12,7 @@ export type DocumentExtractionJobStatus = typeof DocumentExtractionJobStatus[key
 export const DocumentExtractionJobStatus = {
   queued: 'queued',
   running: 'running',
+  cancelled: 'cancelled',
   completed: 'completed',
   failed: 'failed',
 } as const;
