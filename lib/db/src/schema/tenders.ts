@@ -38,6 +38,13 @@ export interface RequirementsExtraction {
     token?: string | null;
     leaseUntil?: string | null;
     cardScope?: "evaluated_only";
+    strategy?: "full_tender";
+    legacyCheckpoint?: {
+      completedSections: number;
+      totalSections: number;
+      sections?: NonNullable<RequirementsExtraction["job"]>["sections"];
+      results?: NonNullable<RequirementsExtraction["job"]>["results"];
+    };
   };
 }
 

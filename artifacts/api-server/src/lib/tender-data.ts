@@ -23,7 +23,7 @@ export async function tenderView(tender: Tender) {
   ]);
   const { ownerId: _ownerId, ...data } = tender;
   if (data.requirementsExtraction?.job) {
-    const { sections: _sections, results: _results, token: _token, leaseUntil: _lease, cardScope: _scope, ...progress } = data.requirementsExtraction.job;
+    const { sections: _sections, results: _results, token: _token, leaseUntil: _lease, cardScope: _scope, strategy: _strategy, legacyCheckpoint: _checkpoint, ...progress } = data.requirementsExtraction.job;
     data.requirementsExtraction = { ...data.requirementsExtraction, job: progress };
   }
   return { ...data, evidenceCount: evidence?.total ?? 0, proposalCount: proposals?.total ?? 0 };

@@ -18,7 +18,7 @@ export async function requirementsProcessing(ownerId: string) {
   return rows.length > 0;
 }
 
-export async function queueRequirements(tenderId: string, ownerId: string) {
+export async function queueRequirements(tenderId: string, ownerId: string, upgradeOnly = false) {
   return db.transaction(async tx => {
     // Serialize starts for this owner, including requests from multiple tabs.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`requirements:${ownerId}`}))`);
@@ -27,9 +27,14 @@ export async function queueRequirements(tenderId: string, ownerId: string) {
     const files = await tx.select().from(evidenceTable).where(and(eq(evidenceTable.tenderId, tenderId), eq(evidenceTable.category, "tender_rfp")));
     const sourceFiles = files.map(f => ({ id: f.id, name: f.name }));
     const previous = tender.requirementsExtraction;
+    // An authenticated continuation may upgrade the strategy only for the
+    // same already-consented sources, never silently add new tender files.
+    if (upgradeOnly && (previous?.job?.status !== "processing" ||
+      previous.job.cardScope !== EVALUATED_CARD_SCOPE || !sourcesMatch(sourceFiles, previous.job.sourceFiles))) return tender;
     if (previous?.job?.cardScope === EVALUATED_CARD_SCOPE && sourcesMatch(sourceFiles, previous.job.sourceFiles)) {
-      if (previous.job.status === "processing") return tender;
-      if (previous.job.status === "failed" && (previous.job.sections?.length || previous.job.results?.length)) {
+      if (previous.job.status === "processing" && (previous.job.strategy === "full_tender" ||
+        (previous.job.token && previous.job.leaseUntil && Date.parse(previous.job.leaseUntil) > Date.now()))) return tender;
+      if (previous.job.status === "failed" && previous.job.strategy === "full_tender" && (previous.job.sections?.length || previous.job.results?.length)) {
         const job: Job = { ...previous.job, status: "processing", error: null, token: null, leaseUntil: null,
           sections: previous.job.sections?.map(s => ({ ...s, attempts: 0 })) ?? [] };
         const [updated] = await tx.update(tendersTable).set({ requirementsExtraction: { ...previous, job }, updatedAt: new Date() })
@@ -41,8 +46,13 @@ export async function queueRequirements(tenderId: string, ownerId: string) {
       sql`requirements_extraction->'job'->>'status' = 'processing'`)).limit(1);
     if (active.length || requirementsInFlight.has(ownerId)) throw new Error("Another tender extraction is already running. Open that tender to finish it.");
     const documents = await prepareTenderSections(files);
-    const job: Job = { id: randomUUID(), status: "processing", completedSections: 0, totalSections: documents.length,
+    const job: Job = { id: randomUUID(), strategy: "full_tender", status: "processing", completedSections: 0, totalSections: documents.length,
       error: null, sourceFiles, cardScope: EVALUATED_CARD_SCOPE, sections: documents.map(d => ({ ...d, depth: 0, attempts: 0 })), results: [] };
+    if (previous?.job && previous.job.strategy !== "full_tender" && (previous.job.sections?.length || previous.job.results?.length)) {
+      // Retain earlier completed work privately until the replacement succeeds.
+      job.legacyCheckpoint = { completedSections: previous.job.completedSections, totalSections: previous.job.totalSections,
+        sections: previous.job.sections, results: previous.job.results };
+    }
     const extraction: RequirementsExtraction = { ...(previous ?? {
       id: randomUUID(), requirements: "", summary: "", warnings: [], sourceFiles: [],
       extractedAt: new Date().toISOString(), reviewedAt: null,
@@ -53,9 +63,8 @@ export async function queueRequirements(tenderId: string, ownerId: string) {
   });
 }
 
-// Exactly ONE provider call per HTTP request. A malformed section is divided
-// and checkpointed for later requests, rather than recursively exhausting the
-// proxy's request lifetime. Completed sections survive retries and restarts.
+// Exactly ONE provider call per HTTP request. Full-tender jobs never split
+// inputs or publish partial output; retries require an explicit user action.
 export async function advanceSection(job: Job, extractor = extractSection): Promise<Job> {
   const next = structuredClone(job);
   const section = next.sections?.[0];
@@ -76,7 +85,20 @@ export async function advanceSection(job: Job, extractor = extractSection): Prom
     next.completedSections += batched ? 2 : 1;
     next.error = null;
   } catch (error) {
-    if (batched && error instanceof InvalidSectionOutputError) {
+    if (next.strategy === "full_tender") {
+      section.attempts++;
+      next.status = "failed";
+      const detail = error && typeof error === "object"
+        ? `${"code" in error ? String(error.code) : ""} ${error instanceof Error ? error.message : ""}` : "";
+      const inputLimit = /context[_ ]length|context window|too many tokens|maximum input|input (?:is )?too (?:long|large)/i.test(detail);
+      next.error = inputLimit
+        ? "The complete tender exceeds the AI input limit. No text was omitted or split, and your previous work is unchanged."
+        : error instanceof InvalidSectionOutputError
+          ? error.reason === "incomplete"
+            ? "The AI response reached its output limit before completing the whole tender. No partial checklist was saved. Retry full-tender extraction."
+            : "The AI did not return a valid assessed-requirements checklist for the complete tender. Your previous work is unchanged; retry full-tender extraction."
+          : "The AI service could not finish the complete tender in this attempt. No partial checklist was saved. Retry full-tender extraction.";
+    } else if (batched && error instanceof InvalidSectionOutputError) {
       section.attempts++;
       next.error = "This batch needs smaller inputs. Saved progress is unchanged; processing will continue with the original individual chunks.";
     } else if (error instanceof InvalidSectionOutputError && section.depth < 3 && section.text.length > 4000) {
@@ -102,6 +124,12 @@ export async function advanceSection(job: Job, extractor = extractSection): Prom
 }
 
 export async function processRequirements(tenderId: string, ownerId: string, extractor = extractSection) {
+  const [existing] = await db.select({ extraction: tendersTable.requirementsExtraction }).from(tendersTable)
+    .where(and(eq(tendersTable.id, tenderId), eq(tendersTable.ownerId, ownerId)));
+  if (!existing) throw new Error("Tender not found.");
+  if (existing.extraction?.job?.status === "processing" && existing.extraction.job.strategy !== "full_tender") {
+    await queueRequirements(tenderId, ownerId, true);
+  }
   const claimed = await db.transaction(async tx => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('requirements-provider-budget'))`);
     const [tender] = await tx.select().from(tendersTable).where(and(eq(tendersTable.id, tenderId), eq(tendersTable.ownerId, ownerId))).for("update");
@@ -116,6 +144,12 @@ export async function processRequirements(tenderId: string, ownerId: string, ext
       return null;
     }
     if (job.status !== "processing" || (job.token && job.leaseUntil && Date.parse(job.leaseUntil) > Date.now())) return null;
+    if (job.strategy !== "full_tender") {
+      await tx.update(tendersTable).set({ requirementsExtraction: { ...extraction, job: {
+        ...job, status: "failed", error: "Tender documents changed. Choose Extract again to review all current sources together.", token: null, leaseUntil: null,
+      } } }).where(eq(tendersTable.id, tenderId));
+      return null;
+    }
     const busy = await tx.select({ id: tendersTable.id }).from(tendersTable).where(sql`
       requirements_extraction->'job'->>'status' = 'processing'
       and requirements_extraction->'job'->>'token' is not null
@@ -152,7 +186,7 @@ export async function processRequirements(tenderId: string, ownerId: string, ext
           }
         });
         job.status = "completed"; job.error = null;
-        delete job.sections; delete job.results;
+        delete job.sections; delete job.results; delete job.legacyCheckpoint;
         extraction = { ...completed, job };
       } catch (error) {
         job.status = "failed"; job.error = error instanceof Error ? error.message : "Could not save the complete extraction.";
