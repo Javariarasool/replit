@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db, evidenceTable, tendersTable } from "@workspace/db";
 import { ExtractTenderRequirementsBody, ExtractTenderRequirementsParams, ExtractTenderRequirementsResponse } from "@workspace/api-zod";
 import { requireAuth, ownedTender, tenderView } from "../lib/tender-data";
-import { extractTenderRequirements, requirementsInFlight, sameTenderSources } from "../lib/tender-requirements";
+import { extractTenderRequirements, InvalidSectionOutputError, requirementsInFlight, sameTenderSources } from "../lib/tender-requirements";
 import { OcrReviewRequiredError } from "../lib/document-extractions";
 import { appendRequirementDrafts } from "../lib/requirement-items";
 
@@ -36,7 +36,11 @@ router.post("/tenders/:tenderId/requirements/extract", async (req, res): Promise
     if (!updated) { res.status(404).json({ error: "Tender was removed during extraction." }); return; }
     res.json(ExtractTenderRequirementsResponse.parse(await tenderView(updated)));
   } catch (error) {
-    req.log.warn({ errorName: error instanceof Error ? error.name : "Error" }, "Tender requirement extraction failed");
+    req.log.warn({
+      errorName: error instanceof Error ? error.name : "Error",
+      ...(error instanceof InvalidSectionOutputError ? { outputReason: error.reason, validationIssues: error.validationIssues } : {}),
+      ...(error && typeof error === "object" && "status" in error && typeof error.status === "number" ? { providerStatus: error.status } : {}),
+    }, "Tender requirement extraction failed");
     res.status(error instanceof OcrReviewRequiredError ? 409 : 400).json({ error: error instanceof Error ? error.message : "Requirements extraction failed. Your uploaded documents and working brief remain unchanged." });
   } finally { requirementsInFlight.delete(owner); }
 });

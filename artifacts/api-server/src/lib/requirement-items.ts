@@ -28,8 +28,12 @@ export async function appendRequirementDrafts(
     keys.add(sourceKey);
     return [{ ...draft, tenderId, ownerId, extractionId, sourceKey }];
   });
-  if (existing.length + values.length > 1000) throw new Error("This tender exceeds the 1,000 individual-requirement limit. Existing work remains unchanged; no clauses were silently omitted.");
-  if (values.length) await writer.insert(requirementItemsTable).values(values);
+  if (existing.length + values.length > 10000) throw new Error("This tender exceeds the 10,000 individual-requirement limit. Existing work remains unchanged; no clauses were silently omitted.");
+  // Callers supply a transaction: keep the full extraction atomic while
+  // avoiding PostgreSQL's bind-parameter limit on large tender inserts.
+  for (let offset = 0; offset < values.length; offset += 250) {
+    await writer.insert(requirementItemsTable).values(values.slice(offset, offset + 250));
+  }
 }
 
 // Decimal arithmetic for authoritative commercial line totals, without binary
