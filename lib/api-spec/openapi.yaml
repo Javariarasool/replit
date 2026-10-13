@@ -791,6 +791,12 @@ components:
       properties:
         objectPath: { type: string, minLength: 1 }
         retry: { type: boolean, default: false }
+        language:
+          $ref: "#/components/schemas/OcrLanguage"
+    OcrLanguage:
+      type: string
+      enum: [eng, urd, "eng+urd"]
+      description: Local recognition language. Omit to retain an existing extraction's language, or use English for a new extraction.
     ExtractionReview:
       type: object
       required: [objectPath, status, confirmed]
@@ -799,6 +805,9 @@ components:
         status: { type: string, enum: [verified, rejected] }
         confirmed: { type: boolean }
         reviewedText: { type: string, maxLength: 500000 }
+        language:
+          $ref: "#/components/schemas/OcrLanguage"
+          description: Language of the OCR being reviewed; legacy requests default to English. Stale reviews of another language are rejected.
     DocumentExtraction:
       type: object
       required: [sourceText, ocrText, confidence, pages, status, error, reviewedText, reviewedAt, engine]
@@ -811,6 +820,8 @@ components:
         reviewedText: { type: [string, "null"] }
         reviewedAt: { type: [string, "null"] }
         engine: { type: string }
+        language:
+          $ref: "#/components/schemas/OcrLanguage"
         pages:
           type: array
           items:

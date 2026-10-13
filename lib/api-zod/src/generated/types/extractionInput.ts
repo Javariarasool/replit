@@ -5,9 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { OcrLanguage } from './ocrLanguage';
 
 export interface ExtractionInput {
   /** @minLength 1 */
   objectPath: string;
   retry?: boolean;
+  language?: OcrLanguage;
 }

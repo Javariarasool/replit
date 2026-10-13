@@ -1926,6 +1926,7 @@ export const GetDocumentExtractionResponse = zod.union([zod.object({
   "reviewedText": zod.string().nullable(),
   "reviewedAt": zod.string().nullable(),
   "engine": zod.string(),
+  "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.'),
   "pages": zod.array(zod.object({
   "page": zod.number().int(),
   "text": zod.string(),
@@ -1942,7 +1943,8 @@ export const extractUploadedDocumentBodyRetryDefault = false;
 
 export const ExtractUploadedDocumentBody = zod.object({
   "objectPath": zod.string().min(1),
-  "retry": zod.boolean().default(extractUploadedDocumentBodyRetryDefault)
+  "retry": zod.boolean().default(extractUploadedDocumentBodyRetryDefault),
+  "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.')
 })
 
 export const ExtractUploadedDocumentResponse = zod.object({
@@ -1954,6 +1956,7 @@ export const ExtractUploadedDocumentResponse = zod.object({
   "reviewedText": zod.string().nullable(),
   "reviewedAt": zod.string().nullable(),
   "engine": zod.string(),
+  "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.'),
   "pages": zod.array(zod.object({
   "page": zod.number().int(),
   "text": zod.string(),
@@ -1974,7 +1977,8 @@ export const ReviewDocumentExtractionBody = zod.object({
   "objectPath": zod.string().min(1),
   "status": zod.enum(['verified', 'rejected']),
   "confirmed": zod.boolean(),
-  "reviewedText": zod.string().max(reviewDocumentExtractionBodyReviewedTextMax).optional()
+  "reviewedText": zod.string().max(reviewDocumentExtractionBodyReviewedTextMax).optional(),
+  "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Language of the OCR being reviewed; legacy requests default to English. Stale reviews of another language are rejected.')
 })
 
 export const ReviewDocumentExtractionResponse = zod.object({
@@ -1986,6 +1990,7 @@ export const ReviewDocumentExtractionResponse = zod.object({
   "reviewedText": zod.string().nullable(),
   "reviewedAt": zod.string().nullable(),
   "engine": zod.string(),
+  "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.'),
   "pages": zod.array(zod.object({
   "page": zod.number().int(),
   "text": zod.string(),

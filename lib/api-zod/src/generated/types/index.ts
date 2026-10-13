@@ -48,6 +48,7 @@ export * from './listProposalLibraryCategory';
 export * from './listProposalLibraryOutcome';
 export * from './listProposalLibraryParams';
 export * from './logoutBrowserSessionParams';
+export * from './ocrLanguage';
 export * from './proposal';
 export * from './proposalKind';
 export * from './proposalPair';

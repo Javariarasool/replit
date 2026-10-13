@@ -12,6 +12,12 @@ const exec = promisify(execFile);
 const MAX_PAGES = 30;
 const MAX_TEXT = 500000;
 const MAX_SOURCE_TEXT = 1000000;
+export type OcrLanguage = NonNullable<DocumentExtraction["language"]>;
+export const OCR_LANGUAGES: Record<OcrLanguage, string> = {
+  eng: "English",
+  urd: "Urdu",
+  "eng+urd": "English + Urdu",
+};
 
 export function substantialRaster(width: number, height: number, xPpi: number, yPpi: number, pageWidth: number, pageHeight: number): boolean {
   if (width < 600 || height < 600) return false;
@@ -54,9 +60,10 @@ export function parseTsv(tsv: string): { text: string; confidence: number | null
   return { text: [...lines.values()].map(words => words.join(" ")).join("\n"), confidence: weight ? Math.round(weighted / weight) : null };
 }
 
-export async function extractWithOcr(buffer: Buffer, contentType: string, name: string): Promise<DocumentExtraction> {
+export async function extractWithOcr(buffer: Buffer, contentType: string, name: string, language: OcrLanguage = "eng"): Promise<DocumentExtraction> {
   if (buffer.length > MAX_DOCUMENT_BYTES) throw new Error("Documents must be 25 MB or smaller.");
-  const result: DocumentExtraction = { sourceText: "", ocrText: "", confidence: null, pages: [], status: "not_needed", error: null, reviewedText: null, reviewedAt: null, engine: "Local Tesseract (English)" };
+  if (!Object.hasOwn(OCR_LANGUAGES, language)) throw new Error("Select English, Urdu, or English + Urdu for local OCR.");
+  const result: DocumentExtraction = { sourceText: "", ocrText: "", confidence: null, pages: [], status: "not_needed", error: null, reviewedText: null, reviewedAt: null, language, engine: `Local Tesseract (${OCR_LANGUAGES[language]})` };
   const pdf = buffer.subarray(0, 4).toString() === "%PDF" || contentType === "application/pdf";
   const image = /image\/(png|jpeg|tiff|bmp|webp)/i.test(contentType) || /\.(png|jpe?g|tiff?|bmp|webp)$/i.test(name);
   let directory: string | undefined;
@@ -90,6 +97,12 @@ export async function extractWithOcr(buffer: Buffer, contentType: string, name: 
     } else pageNumbers = [1];
     if (result.sourceText.length > MAX_SOURCE_TEXT) throw new Error("Extracted source text exceeds the 1,000,000 character limit. Split the document.");
     if (!pageNumbers.length) return result;
+    // Tesseract can succeed using only one installed language from a combination.
+    // Fail explicitly instead of silently reading mixed scans as English only.
+    const { stdout: installed } = await exec(ocrTool("tesseract"), ["--list-langs"], { timeout: 10000 });
+    const available = new Set(installed.split(/\r?\n/).map(line => line.trim()));
+    const missing = language.split("+").filter(code => !available.has(code));
+    if (missing.length) throw new Error(`Local OCR language data is missing (${missing.join(", ")}). Install the selected Tesseract language data and retry; no remote OCR was used.`);
     for (const page of pageNumbers) {
       let imagePath = input;
       if (pdf) {
@@ -99,11 +112,20 @@ export async function extractWithOcr(buffer: Buffer, contentType: string, name: 
       }
       // Bound native parallelism: the service already permits concurrent OCR
       // jobs, and OpenMP contention can make a small scan exceed its deadline.
-      const { stdout } = await exec(ocrTool("tesseract"), [imagePath, "stdout", "-l", "eng", "tsv"], {
+      const options = {
         timeout: 60000, maxBuffer: 8 * 1024 * 1024,
         env: { ...process.env, OMP_THREAD_LIMIT: "1" },
-      });
-      const recognized = parseTsv(stdout);
+      };
+      const { stdout } = await exec(ocrTool("tesseract"), [imagePath, "stdout", "-l", language, "tsv"], options);
+      let recognized = parseTsv(stdout);
+      // Automatic layout analysis can discard short Urdu lines among English
+      // paragraphs. If it found no Urdu at all, retry as one text block.
+      // Keep automatic layout for multi-column pages that already contain Urdu.
+      if (language !== "eng" && !/[\u0600-\u06ff]/u.test(recognized.text)) {
+        const retry = await exec(ocrTool("tesseract"), [imagePath, "stdout", "-l", language, "--psm", "6", "tsv"], options);
+        const candidate = parseTsv(retry.stdout);
+        if (/[\u0600-\u06ff]/u.test(candidate.text)) recognized = candidate;
+      }
       result.pages.push({ page, ...recognized });
     }
     result.ocrText = result.pages.map(page => `[OCR page ${page.page}]\n${page.text}`).join("\n\n");

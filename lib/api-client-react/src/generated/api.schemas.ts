@@ -5,10 +5,23 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * Local recognition language. Omit to retain an existing extraction's language, or use English for a new extraction.
+ */
+export type OcrLanguage = typeof OcrLanguage[keyof typeof OcrLanguage];
+
+
+export const OcrLanguage = {
+  eng: 'eng',
+  urd: 'urd',
+  'eng+urd': 'eng+urd',
+} as const;
+
 export interface ExtractionInput {
   /** @minLength 1 */
   objectPath: string;
   retry?: boolean;
+  language?: OcrLanguage;
 }
 
 export type ExtractionReviewStatus = typeof ExtractionReviewStatus[keyof typeof ExtractionReviewStatus];
@@ -26,6 +39,8 @@ export interface ExtractionReview {
   confirmed: boolean;
   /** @maxLength 500000 */
   reviewedText?: string;
+  /** Language of the OCR being reviewed; legacy requests default to English. Stale reviews of another language are rejected. */
+  language?: OcrLanguage;
 }
 
 export type DocumentExtractionStatus = typeof DocumentExtractionStatus[keyof typeof DocumentExtractionStatus];
@@ -59,6 +74,7 @@ export interface DocumentExtraction {
   /** @nullable */
   reviewedAt: string | null;
   engine: string;
+  language?: OcrLanguage;
   pages: DocumentExtractionPagesItem[];
 }
 

@@ -7,6 +7,7 @@
  */
 import type { DocumentExtractionPagesItem } from './documentExtractionPagesItem';
 import type { DocumentExtractionStatus } from './documentExtractionStatus';
+import type { OcrLanguage } from './ocrLanguage';
 
 export interface DocumentExtraction {
   sourceText: string;
@@ -21,5 +22,6 @@ export interface DocumentExtraction {
   /** @nullable */
   reviewedAt: string | null;
   engine: string;
+  language?: OcrLanguage;
   pages: DocumentExtractionPagesItem[];
 }

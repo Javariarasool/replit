@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExtractionReviewStatus } from './extractionReviewStatus';
+import type { OcrLanguage } from './ocrLanguage';
 
 export interface ExtractionReview {
   /** @minLength 1 */
@@ -14,4 +15,6 @@ export interface ExtractionReview {
   confirmed: boolean;
   /** @maxLength 500000 */
   reviewedText?: string;
+  /** Language of the OCR being reviewed; legacy requests default to English. Stale reviews of another language are rejected. */
+  language?: OcrLanguage;
 }

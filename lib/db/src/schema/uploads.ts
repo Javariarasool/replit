@@ -11,6 +11,8 @@ export type DocumentExtraction = {
   reviewedText: string | null;
   reviewedAt: string | null;
   engine: string;
+  // Optional for extractions saved before language selection was introduced.
+  language?: "eng" | "urd" | "eng+urd";
 };
 
 export const uploadsTable = pgTable("document_uploads", {

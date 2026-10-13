@@ -111,3 +111,63 @@ test("unsupported or damaged documents fail explicitly", async () => {
   assert.ok(result.error);
   assert.throws(() => draftingText(result, "unknown.bin"), /Extraction failed/);
 });
+
+test("recognition language is validated and defaults to English", async () => {
+  const native = await extractWithOcr(Buffer.from(text), "text/plain", "source.txt");
+  assert.equal(native.language, "eng");
+  assert.match(native.engine, /English/);
+  await assert.rejects(() => extractWithOcr(Buffer.from(text), "text/plain", "source.txt", "fra" as "eng"), /Select English, Urdu/);
+});
+
+for (const language of ["urd", "eng+urd"] as const) {
+  for (const format of ["png", "pdf"] as const) {
+    test(`${language} government-style tender ${format} preserves local review safeguards`, async () => {
+      const fixture = new URL(`./fixtures/${language === "urd" ? "urdu" : "mixed"}-tender.${format}`, import.meta.url);
+      const scan = await extractWithOcr(await readFile(fixture), format === "pdf" ? "application/pdf" : "image/png", `tender.${format}`, language);
+      assert.equal(scan.status, "needs_review", scan.error ?? undefined);
+      assert.equal(scan.language, language);
+      assert.match(scan.engine, language === "urd" ? /\(Urdu\)/ : /\(English \+ Urdu\)/);
+      assert.doesNotMatch(scan.sourceText, /پنجاب|GOVERNMENT/);
+      assert.match(scan.ocrText, /کمپیوٹر/);
+      assert.match(scan.ocrText, /کی فراہمی/); // logical RTL word order
+      if (language === "urd") {
+        assert.match(scan.ocrText, /ٹینڈر نوٹس/);
+        assert.match(scan.ocrText, /آخری تاریخ/);
+      }
+      if (language === "eng+urd") {
+        assert.match(scan.ocrText, /GOVERNMENT OF PUNJAB/);
+        assert.match(scan.ocrText, /Quantity 24 units/);
+        assert.match(scan.ocrText, /50000/); // currency labels still require human checking
+        assert.match(scan.ocrText, /20 October 2026/);
+      }
+      assert.ok(scan.confidence !== null && scan.confidence >= 0 && scan.confidence <= 100);
+      assert.ok(scan.pages[0].confidence !== null);
+      assert.equal(scan.reviewedText, null);
+      assert.equal(scan.reviewedAt, null);
+      assert.throws(() => draftingText(scan, "tender"), /Verify/);
+      assert.throws(() => draftingText({ ...scan, status: "rejected" }, "tender"), /Verify/);
+      const raw = scan.ocrText;
+      const corrected = "حکومت پنجاب — human checked quantity 25";
+      assert.match(draftingText({ ...scan, status: "verified", reviewedText: corrected }, "tender"), /human checked quantity 25/);
+      assert.equal(scan.ocrText, raw);
+    });
+  }
+}
+
+test("missing language data fails locally rather than falling back to English", async () => {
+  const original = process.env.TESSDATA_PREFIX;
+  const empty = join(directory, "empty-tessdata");
+  await mkdir(empty, { recursive: true });
+  process.env.TESSDATA_PREFIX = empty;
+  try {
+    const scan = await extractWithOcr(await readFile(new URL("./fixtures/mixed-tender.png", import.meta.url)), "image/png", "mixed.png", "eng+urd");
+    assert.equal(scan.status, "failed");
+    assert.match(scan.error ?? "", /language data is missing/);
+    assert.equal(scan.ocrText, "");
+    assert.equal(scan.reviewedText, null);
+    assert.throws(() => draftingText(scan, "mixed"), /Extraction failed/);
+  } finally {
+    if (original === undefined) delete process.env.TESSDATA_PREFIX;
+    else process.env.TESSDATA_PREFIX = original;
+  }
+});
