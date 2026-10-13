@@ -54,6 +54,7 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
   }, [draftKey, userId, requirements, summary, reviewId, tender.requirements, tender.summary]);
   const extraction = tender.requirementsExtraction;
   const job = extraction?.job;
+  const consentProvider = job?.status === 'processing' ? job.provider ?? 'openai' : provider;
   const rfpFiles = files.filter(f => f.category === 'tender_rfp');
   const changed = !!extraction && JSON.stringify(rfpFiles.map(f => f.id).sort()) !== JSON.stringify(extraction.sourceFiles.map(f => f.id).sort());
   const pending = !!extraction && !extraction.reviewedAt;
@@ -72,6 +73,7 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
       <div className="flex gap-2"><Button variant="secondary" onClick={onUpload} disabled={extracting} data-testid="button-upload-tender">Upload tender</Button>
         <Button onClick={() => setConsentOpen(true)} disabled={extracting || saving || !rfpFiles.length} data-testid="button-extract-requirements"><Sparkles size={15}/>{extraction ? 'Extract again' : 'Extract from tender'}</Button></div>
     </div>
+    {job?.provider && <p className="text-xs text-muted-foreground" data-testid="text-extraction-provider">{job.status === 'completed' ? 'Last extraction' : 'Current extraction attempt'}: {job.provider === 'anthropic' ? 'Claude Sonnet 5.5' : 'OpenAI'}.</p>}
     <RequirementWorkspace tender={tender} files={files}/>
     {extracting && <div role="status" data-testid="requirements-extraction-progress" className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm"><LoaderCircle size={18} className="animate-spin"/><div>{job?.status === 'processing' ? 'Reviewing the complete tender for assessed requirements…' : 'Preparing the complete tender for requirement extraction.'}<p className="mt-1 text-xs text-muted-foreground">All tender sources are reviewed together in one AI request, without processing chunks. The checklist appears only when the full result is ready. Keep this tender open while processing. Your saved brief and evidence stay unchanged.</p>{job?.error && <p className="mt-2">{job.error}</p>}</div></div>}
     {job?.status === 'failed' && <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{job.error}</p><p className="mt-2">No partial brief or requirement list has replaced your previous work.</p><Button className="mt-3" onClick={() => setConsentOpen(true)} disabled={saving} data-testid="button-retry-extraction">Retry full-tender extraction</Button></div>}
@@ -104,13 +106,13 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
     </div>
     {consentOpen && <Dialog title="Extract tender requirements" description="Read all documents attached in the Tender / RFP category." onClose={() => setConsentOpen(false)}>
       <Field label="AI provider">
-        <select className={inputClass} value={provider} onChange={event => setProvider(event.target.value as 'openai' | 'anthropic')}>
+        <select className={inputClass} value={consentProvider} disabled={job?.status === 'processing'} data-testid="select-extraction-provider" onChange={event => setProvider(event.target.value as 'openai' | 'anthropic')}>
           <option value="anthropic">Claude Sonnet 5.5</option>
           <option value="openai">OpenAI</option>
         </select>
       </Field>
-      <p className="mt-3 text-sm leading-6">Readable tender text and its notes will be sent to {provider === 'anthropic' ? 'Claude through Anthropic' : 'OpenAI'} using Replit AI Integrations. Usage is billed to your Replit credits. Original document images are not sent. Results are saved for review; your working brief is not replaced automatically.</p>
-      <div className="mt-5 flex justify-end gap-2"><Button variant="quiet" onClick={() => setConsentOpen(false)}>Cancel</Button><Button data-testid="button-confirm-extraction" onClick={() => { setConsentOpen(false); onExtract(provider); }}>Agree and extract</Button></div>
+      <p className="mt-3 text-sm leading-6">Readable tender text and its notes will be sent to {consentProvider === 'anthropic' ? 'Claude through Anthropic' : 'OpenAI'} using Replit AI Integrations. Usage is billed to your Replit credits. Original document images are not sent. Results are saved for review; your working brief is not replaced automatically.</p>
+      <div className="mt-5 flex justify-end gap-2"><Button variant="quiet" onClick={() => setConsentOpen(false)}>Cancel</Button><Button data-testid="button-confirm-extraction" onClick={() => { setConsentOpen(false); onExtract(consentProvider); }}>Agree and extract</Button></div>
     </Dialog>}
   </section>;
 }

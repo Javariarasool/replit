@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assembleTenderRequirements, extractSectionWithRecovery, InvalidSectionOutputError, parseSectionOutput } from "./tender-requirements";
+import { assembleTenderRequirements, extractSectionWithRecovery, InvalidSectionOutputError, parseSectionOutput, responseJson } from "./tender-requirements";
+
+test("provider JSON wrappers are accepted only when the entire response is complete JSON", () => {
+  const value = { summary: "Complete", warnings: [], items: [] };
+  assert.deepEqual(responseJson(JSON.stringify(value)), value);
+  assert.deepEqual(responseJson("```json\n" + JSON.stringify(value) + "\n```"), value);
+  assert.throws(() => responseJson("Here is a fragment:\n" + JSON.stringify(value)), InvalidSectionOutputError);
+  assert.throws(() => responseJson('{"summary":"unfinished"'), InvalidSectionOutputError);
+});
 import { visibleRequirements } from "./requirement-scope";
 import type { RequirementItem, RequirementsExtraction } from "@workspace/db";
 import { appendRequirementDrafts } from "./requirement-items";

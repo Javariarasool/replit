@@ -28,6 +28,25 @@ const result = (title: string) => ({
 });
 type Job = NonNullable<RequirementsExtraction["job"]>;
 
+test("a full-tender job passes its consented Claude provider to the extractor", async () => {
+  const job: Job = {
+    id: randomUUID(), strategy: "full_tender", provider: "anthropic", status: "processing",
+    completedSections: 0, totalSections: 1, error: null, sourceFiles: [],
+    sections: [{ label: "Complete tender", text: "Original full tender", depth: 0, attempts: 0 }], results: [],
+  };
+  let calls = 0;
+  const next = await advanceSection(job, async (text, partial, provider) => {
+    calls++;
+    assert.equal(text, "Original full tender");
+    assert.equal(partial, false);
+    assert.equal(provider, "anthropic");
+    return result("switches");
+  });
+  assert.equal(calls, 1);
+  assert.equal(next.provider, "anthropic");
+  assert.equal(next.completedSections, 1);
+});
+
 test("large source text is covered by small overlapping sections, including its final clause", () => {
   const text = Array.from({ length: 5000 }, (_, i) => `CLAUSE-${i}: ${"Mandatory hardware and commercial condition. ".repeat(3)}`).join("\n");
   const parts = splitTenderText(text);
@@ -153,13 +172,15 @@ test("durable extraction resumes after failure and publishes the whole brief and
   assert.equal((await read()).requirementsExtraction!.job!.completedSections, 0);
   assert.equal((await db.select().from(requirementItemsTable)).length, 0);
   assert.equal((await read()).requirementsExtraction!.job!.status, "failed");
-  const resumed = await queueRequirements(tender.id, ownerId);
+  const resumed = await queueRequirements(tender.id, ownerId, "anthropic");
+  assert.equal(resumed.requirementsExtraction!.job!.provider, "anthropic");
   assert.equal(resumed.requirementsExtraction!.job!.completedSections, 0);
   assert.equal(resumed.requirementsExtraction!.job!.id, queued.requirementsExtraction!.job!.id);
   let counter = 0;
   while ((await read()).requirementsExtraction!.job!.status === "processing") {
-    await processRequirements(tender.id, ownerId, async (text, partial) => {
+    await processRequirements(tender.id, ownerId, async (text, partial, provider) => {
       counter++; assert.ok(text.includes(sourceText)); assert.equal(partial, false);
+      assert.equal(provider, "anthropic");
       return result("first");
     });
   }

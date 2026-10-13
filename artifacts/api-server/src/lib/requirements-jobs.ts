@@ -70,7 +70,7 @@ export async function queueRequirements(tenderId: string, ownerId: string, provi
 
 // Exactly ONE provider call per HTTP request. Full-tender jobs never split
 // inputs or publish partial output; retries require an explicit user action.
-export async function advanceSection(job: Job, extractor = extractSection): Promise<Job> {
+export async function advanceSection(job: Job, extractor?: typeof extractSection): Promise<Job> {
   const next = structuredClone(job);
   const section = next.sections?.[0];
   if (!section) return next;
@@ -84,7 +84,7 @@ export async function advanceSection(job: Job, extractor = extractSection): Prom
     section.text.length + separator.length + following.text.length <= 18000;
   const input = batched ? section.text + separator + following.text : section.text;
   try {
-    const result: ExtractedSection = await extractor(input, next.totalSections > 1);
+    const result: ExtractedSection = await (extractor ?? extractSection)(input, next.totalSections > 1, next.provider ?? "openai");
     next.results = [...(next.results ?? []), { label: batched ? `${section.label} + ${following.label}` : section.label, result }];
     next.sections!.splice(0, batched ? 2 : 1);
     next.completedSections += batched ? 2 : 1;
@@ -100,7 +100,9 @@ export async function advanceSection(job: Job, extractor = extractSection): Prom
         ? "The complete tender exceeds the AI input limit. No text was omitted or split, and your previous work is unchanged."
         : error instanceof InvalidSectionOutputError
           ? error.reason === "incomplete"
-            ? "The AI response reached its output limit before completing the whole tender. No partial checklist was saved. Retry full-tender extraction."
+            ? error.providerStopReason && !["length", "max_tokens"].includes(error.providerStopReason)
+              ? "The selected AI stopped before returning a complete checklist. No partial checklist was saved. Retry full-tender extraction."
+              : "The AI response reached its output limit before completing the whole tender. No partial checklist was saved. Retry full-tender extraction."
             : "The AI did not return a valid assessed-requirements checklist for the complete tender. Your previous work is unchanged; retry full-tender extraction."
           : "The AI service could not finish the complete tender in this attempt. No partial checklist was saved. Retry full-tender extraction.";
     } else if (batched && error instanceof InvalidSectionOutputError) {
@@ -166,7 +168,7 @@ export async function processRequirements(tenderId: string, ownerId: string, ext
     return { extraction, job: claimedJob, token };
   });
   if (!claimed) return;
-  const job = await advanceSection(claimed.job, extractor ?? ((text, partial) => extractSection(text, partial, claimed.job.provider ?? "openai")));
+  const job = await advanceSection(claimed.job, extractor);
   await db.transaction(async tx => {
     const [current] = await tx.select().from(tendersTable).where(and(eq(tendersTable.id, tenderId), eq(tendersTable.ownerId, ownerId))).for("update");
     // Fence workers replaced after a restart, expiry, deletion or changed job.
