@@ -60,15 +60,27 @@ export async function advanceSection(job: Job, extractor = extractSection): Prom
   const next = structuredClone(job);
   const section = next.sections?.[0];
   if (!section) return next;
+  const following = next.sections?.[1];
+  const separator = "\n\n--- NEXT PROCESSING CHUNK ---\n\n";
+  // One bounded provider call per request, even when it covers two original
+  // chunks. Do not batch recovery/retried chunks: malformed batches fall back
+  // to the original individual inputs, preserving all text and checkpoints.
+  const batched = following && section.depth === 0 && following.depth === 0 &&
+    section.attempts === 0 && following.attempts === 0 &&
+    section.text.length + separator.length + following.text.length <= 18000;
+  const input = batched ? section.text + separator + following.text : section.text;
   try {
-    const result: ExtractedSection = await extractor(section.text, next.totalSections > 1);
-    next.results = [...(next.results ?? []), { label: section.label, result }];
-    next.sections!.shift();
-    next.completedSections++;
+    const result: ExtractedSection = await extractor(input, next.totalSections > 1);
+    next.results = [...(next.results ?? []), { label: batched ? `${section.label} + ${following.label}` : section.label, result }];
+    next.sections!.splice(0, batched ? 2 : 1);
+    next.completedSections += batched ? 2 : 1;
     next.error = null;
   } catch (error) {
-    if (error instanceof InvalidSectionOutputError && section.depth < 3 && section.text.length > 4000) {
-      const header = section.text.match(/^SOURCE FILE: [^\n]*\nSOURCE SECTION: [^\n]*\n/)?.[0] ?? "";
+    if (batched && error instanceof InvalidSectionOutputError) {
+      section.attempts++;
+      next.error = "This batch needs smaller inputs. Saved progress is unchanged; processing will continue with the original individual chunks.";
+    } else if (error instanceof InvalidSectionOutputError && section.depth < 3 && section.text.length > 4000) {
+      const header = section.text.match(/^SOURCE FILE: [^\n]*\nSOURCE (?:SECTION|CHUNK): [^\n]*\n/)?.[0] ?? "";
       const pieces = splitTenderText(section.text, Math.max(2001, Math.ceil(section.text.length / 2)));
       next.sections!.splice(0, 1, ...pieces.map((text, i) => ({
         text: header && !text.startsWith(header) ? header + text : text,
@@ -80,8 +92,8 @@ export async function advanceSection(job: Job, extractor = extractSection): Prom
       // Bound transient retries; preserve checkpoints for an explicit retry.
       if (error instanceof InvalidSectionOutputError || section.attempts >= 3) next.status = "failed";
       next.error = error instanceof InvalidSectionOutputError
-        ? "The AI could not separate this source section into valid requirements. Completed sections are saved; retry extraction."
-        : "The AI service could not finish this section. Completed sections are saved; retry extraction if this continues.";
+        ? "The AI could not separate this processing chunk into valid requirements. Completed processing chunks are saved; retry extraction."
+        : "The AI service could not finish this processing chunk. Completed processing chunks are saved; retry extraction if this continues.";
     }
   }
   next.token = null;

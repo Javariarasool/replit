@@ -36,6 +36,49 @@ test("large source text is covered by small overlapping sections, including its 
   const seen = new Set(parts.flatMap(p => [...p.matchAll(/CLAUSE-(\d+):/g)].map(m => Number(m[1]))));
   assert.equal(seen.size, 5000);
 });
+test("newline-aligned tiny recovery chunks always advance and retain every source character", () => {
+  const text = "x".repeat(1500) + "\n" + "y".repeat(3000);
+  const chunks = splitTenderText(text, 2002);
+  assert.ok(chunks.length < 10);
+  let covered = "", end = 0;
+  for (const chunk of chunks) {
+    const start = text.indexOf(chunk, Math.max(0, end - 500));
+    assert.ok(start >= 0 && start <= end);
+    covered += chunk.slice(Math.max(0, end - start));
+    end = start + chunk.length;
+  }
+  assert.equal(covered, text);
+});
+test("two small untouched chunks share one bounded AI call without losing progress or their requirements", async () => {
+  const job: Job = { id: randomUUID(), cardScope: "evaluated_only", status: "processing", completedSections: 2, totalSections: 4,
+    sourceFiles: [], error: null, results: [{ label: "saved", result: result("saved") }],
+    sections: [{ label: "first", text: "Supply first switch", depth: 0, attempts: 0 },
+      { label: "second", text: "Supply second switch", depth: 0, attempts: 0 }] };
+  let calls = 0;
+  const next = await advanceSection(job, async text => {
+    calls++; assert.match(text, /Supply first switch/); assert.match(text, /Supply second switch/);
+    return { ...result("first switch"), items: [...result("first switch").items, ...result("second switch").items] };
+  });
+  assert.equal(calls, 1); assert.equal(next.completedSections, 4); assert.equal(next.sections!.length, 0);
+  assert.equal(next.results![0]!.label, "saved");
+  assert.equal(next.results![1]!.result.items.length, 2);
+  assert.equal(job.completedSections, 2); assert.equal(job.sections!.length, 2);
+});
+test("a malformed two-chunk batch falls back to the untouched individual inputs with one call per step", async () => {
+  const job: Job = { id: randomUUID(), cardScope: "evaluated_only", status: "processing", completedSections: 0, totalSections: 2,
+    sourceFiles: [], error: null, results: [],
+    sections: [{ label: "first", text: "Supply first switch", depth: 0, attempts: 0 },
+      { label: "second", text: "Supply second switch", depth: 0, attempts: 0 }] };
+  let calls = 0;
+  const failed = await advanceSection(job, async () => { calls++; throw new InvalidSectionOutputError("invalid_shape"); });
+  assert.equal(calls, 1); assert.equal(failed.sections!.length, 2); assert.equal(failed.completedSections, 0);
+  assert.equal(failed.sections![0]!.text, job.sections![0]!.text);
+  const recovered = await advanceSection(failed, async text => {
+    calls++; assert.equal(text, "Supply first switch"); return result("first switch");
+  });
+  assert.equal(calls, 2); assert.equal(recovered.completedSections, 1);
+  assert.equal(recovered.sections![0]!.text, "Supply second switch");
+});
 
 test("truncated output checkpoints smaller sections with just one provider call per step", async () => {
   const text = `SOURCE FILE: "large.pdf"\nSOURCE SECTION: 1 OF 1\n${"requirement line\n".repeat(450)}`;

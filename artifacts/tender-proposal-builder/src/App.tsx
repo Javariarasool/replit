@@ -207,7 +207,7 @@ function TenderWorkspace({ userId, sessionExpired }: { userId: string; sessionEx
           void qc.invalidateQueries({ queryKey: getListTendersQueryKey() });
         }
       },
-      onError: e => setRequirementError(`Extraction paused; completed sections are saved. Reload to resume. ${errorText(e)}`),
+      onError: e => setRequirementError(`Extraction paused; completed processing chunks are saved. Reload to resume. ${errorText(e)}`),
     }), 1000);
     return () => window.clearTimeout(timer);
   }, [id, requirementsJob, processRequirements.isPending, extract.isPending, sessionExpired, requirementError, qc]);
