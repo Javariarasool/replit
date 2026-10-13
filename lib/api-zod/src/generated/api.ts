@@ -378,6 +378,9 @@ export const GetDashboardSummaryResponse = zod.object({
   "totalSections": zod.number().int(),
   "error": zod.string().nullable(),
   "provider": zod.enum(['openai', 'anthropic']).optional(),
+  "strategy": zod.enum(['full_tender', 'filter_saved']).optional(),
+  "filterCandidateCount": zod.number().int().optional(),
+  "filterKeptCount": zod.number().int().optional(),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
   "name": zod.string()
@@ -449,6 +452,9 @@ export const ListTendersResponseItem = zod.object({
   "totalSections": zod.number().int(),
   "error": zod.string().nullable(),
   "provider": zod.enum(['openai', 'anthropic']).optional(),
+  "strategy": zod.enum(['full_tender', 'filter_saved']).optional(),
+  "filterCandidateCount": zod.number().int().optional(),
+  "filterKeptCount": zod.number().int().optional(),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
   "name": zod.string()
@@ -534,6 +540,9 @@ export const CreateTenderResponse = zod.object({
   "totalSections": zod.number().int(),
   "error": zod.string().nullable(),
   "provider": zod.enum(['openai', 'anthropic']).optional(),
+  "strategy": zod.enum(['full_tender', 'filter_saved']).optional(),
+  "filterCandidateCount": zod.number().int().optional(),
+  "filterKeptCount": zod.number().int().optional(),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
   "name": zod.string()
@@ -608,6 +617,9 @@ export const GetTenderResponse = zod.object({
   "totalSections": zod.number().int(),
   "error": zod.string().nullable(),
   "provider": zod.enum(['openai', 'anthropic']).optional(),
+  "strategy": zod.enum(['full_tender', 'filter_saved']).optional(),
+  "filterCandidateCount": zod.number().int().optional(),
+  "filterKeptCount": zod.number().int().optional(),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
   "name": zod.string()
@@ -701,6 +713,9 @@ export const UpdateTenderResponse = zod.object({
   "totalSections": zod.number().int(),
   "error": zod.string().nullable(),
   "provider": zod.enum(['openai', 'anthropic']).optional(),
+  "strategy": zod.enum(['full_tender', 'filter_saved']).optional(),
+  "filterCandidateCount": zod.number().int().optional(),
+  "filterKeptCount": zod.number().int().optional(),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
   "name": zod.string()
@@ -745,7 +760,8 @@ export const ExtractTenderRequirementsParams = zod.object({
 
 export const ExtractTenderRequirementsBody = zod.object({
   "aiConsent": zod.literal(true),
-  "provider": zod.enum(['openai', 'anthropic']).optional()
+  "provider": zod.enum(['openai', 'anthropic']).optional(),
+  "operation": zod.enum(['extract', 'filter_saved']).optional()
 })
 
 
@@ -790,6 +806,9 @@ export const ExtractTenderRequirementsResponse = zod.object({
   "totalSections": zod.number().int(),
   "error": zod.string().nullable(),
   "provider": zod.enum(['openai', 'anthropic']).optional(),
+  "strategy": zod.enum(['full_tender', 'filter_saved']).optional(),
+  "filterCandidateCount": zod.number().int().optional(),
+  "filterKeptCount": zod.number().int().optional(),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
   "name": zod.string()
@@ -864,6 +883,9 @@ export const ProcessTenderRequirementsResponse = zod.object({
   "totalSections": zod.number().int(),
   "error": zod.string().nullable(),
   "provider": zod.enum(['openai', 'anthropic']).optional(),
+  "strategy": zod.enum(['full_tender', 'filter_saved']).optional(),
+  "filterCandidateCount": zod.number().int().optional(),
+  "filterKeptCount": zod.number().int().optional(),
   "sourceFiles": zod.array(zod.object({
   "id": zod.string().uuid(),
   "name": zod.string()
@@ -1081,7 +1103,8 @@ export const ImportRequirementItemsParams = zod.object({
 
 export const ImportRequirementItemsBody = zod.object({
   "aiConsent": zod.literal(true),
-  "provider": zod.enum(['openai', 'anthropic']).optional()
+  "provider": zod.enum(['openai', 'anthropic']).optional(),
+  "operation": zod.enum(['extract', 'filter_saved']).optional()
 })
 
 export const importRequirementItemsResponseOneTitleMax = 300;
@@ -1331,7 +1354,8 @@ export const ResearchRequirementSuppliersParams = zod.object({
 
 export const ResearchRequirementSuppliersBody = zod.object({
   "aiConsent": zod.literal(true),
-  "provider": zod.enum(['openai', 'anthropic']).optional()
+  "provider": zod.enum(['openai', 'anthropic']).optional(),
+  "operation": zod.enum(['extract', 'filter_saved']).optional()
 })
 
 export const researchRequirementSuppliersResponseOneTitleMax = 300;

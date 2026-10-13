@@ -4,10 +4,11 @@ import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { db, pool, usersTable, uploadsTable, evidenceTable, tendersTable, requirementItemsTable, type RequirementsExtraction } from "@workspace/db";
 import { queuedExtraction } from "./document-extractions";
-import { advanceSection, queueRequirements, processRequirements, requirementsProcessing } from "./requirements-jobs";
+import { advanceSection, queueRequirements, queueSavedRequirementFilter, processRequirements, requirementsProcessing } from "./requirements-jobs";
 import { InvalidSectionOutputError, splitTenderText } from "./tender-requirements";
 import { requirementKey } from "./requirement-items";
 import { tenderView } from "./tender-data";
+import { visibleRequirements } from "./requirement-scope";
 
 const schema = `requirements_jobs_test_${randomUUID().replaceAll("-", "")}`;
 pool.options.options = `${pool.options.options ?? ""} -c search_path=${schema}`;
@@ -209,6 +210,64 @@ test("durable extraction resumes after failure and publishes the whole brief and
   assert.equal(retained.extractionId, (await read()).requirementsExtraction!.id);
 });
 
+test("filtering saved cards keeps selected identities, evidence, approvals and human brief without rereading the document", async () => {
+  const ownerId = `filter-${randomUUID()}`;
+  await db.insert(usersTable).values({ id: ownerId });
+  const oldId = randomUUID();
+  const included = result("evaluated certification").items[0]!;
+  const excluded = result("general agency background").items[0]!;
+  const manual = result("reviewer's own item").items[0]!;
+  const [tender] = await db.insert(tendersTable).values({
+    ownerId, title: "Saved checklist", agency: "Test agency", requirements: "Human edited working brief",
+    requirementsExtraction: { id: oldId, requirements: "Original lengthy extracted list", summary: "Previous summary", sourceFiles: [],
+      warnings: [], extractedAt: new Date().toISOString(), reviewedAt: null, items: [included, excluded] },
+  }).returning();
+  const [keptRow, archivedRow, manualRow] = await db.insert(requirementItemsTable).values([
+    { ...included, tenderId: tender.id, ownerId, extractionId: oldId, sourceKey: requirementKey(included), reviewStatus: "approved", evidenceIds: ["proof-kept"] },
+    { ...excluded, tenderId: tender.id, ownerId, extractionId: oldId, sourceKey: requirementKey(excluded), reviewStatus: "approved", evidenceIds: ["proof-archived"] },
+    { ...manual, tenderId: tender.id, ownerId, extractionId: oldId, sourceKey: `${requirementKey(manual)}:${randomUUID()}`, reviewStatus: "approved", evidenceIds: ["proof-manual"] },
+  ]).returning();
+  const queued = await queueSavedRequirementFilter(tender.id, ownerId);
+  assert.equal(queued.requirementsExtraction?.job?.strategy, "filter_saved");
+  assert.equal(queued.requirementsExtraction?.job?.filterCandidateCount, 2);
+  assert.equal(queued.requirementsExtraction?.items?.length, 2);
+  assert.equal(queued.requirements, "Human edited working brief");
+  const publicView = await tenderView(queued);
+  assert.equal(publicView.requirementsExtraction?.job?.filterItemIndexes, undefined);
+  assert.equal(publicView.requirementsExtraction?.job?.sections, undefined);
+  await processRequirements(tender.id, ownerId, async () => { throw new Error("Full tender should not be sent again"); },
+    async () => { throw new InvalidSectionOutputError("incomplete", [], "max_tokens"); });
+  const [failed] = await db.select().from(tendersTable).where(eq(tendersTable.id, tender.id));
+  assert.equal(failed.requirementsExtraction?.job?.status, "failed");
+  assert.equal(failed.requirementsExtraction?.id, oldId);
+  assert.equal(failed.requirementsExtraction?.items?.length, 2);
+  assert.equal(failed.requirements, "Human edited working brief");
+  await queueSavedRequirementFilter(tender.id, ownerId);
+  let calls = 0;
+  await processRequirements(tender.id, ownerId, async () => { throw new Error("Full tender should not be sent again"); }, async (input, count) => {
+    calls++;
+    assert.equal(count, 2);
+    assert.ok(input.includes("evaluated certification"));
+    return [0];
+  });
+  assert.equal(calls, 1);
+  const [saved] = await db.select().from(tendersTable).where(eq(tendersTable.id, tender.id));
+  const cards = await db.select().from(requirementItemsTable).where(eq(requirementItemsTable.tenderId, tender.id));
+  assert.equal(saved.requirements, "Human edited working brief");
+  assert.equal(saved.requirementsExtraction?.job?.status, "completed");
+  assert.equal(saved.requirementsExtraction?.job?.filterKeptCount, 1);
+  assert.deepEqual(saved.requirementsExtraction?.items?.map(item => item.title), [included.title]);
+  assert.match(saved.requirementsExtraction!.requirements, /evaluated certification/);
+  assert.doesNotMatch(saved.requirementsExtraction!.requirements, /general agency background/);
+  assert.deepEqual(visibleRequirements(cards, saved.requirementsExtraction!).map(row => row.id).sort(), [keptRow.id, manualRow.id].sort());
+  assert.equal(cards.find(row => row.id === keptRow.id)?.reviewStatus, "approved");
+  assert.deepEqual(cards.find(row => row.id === keptRow.id)?.evidenceIds, ["proof-kept"]);
+  assert.equal(cards.find(row => row.id === archivedRow.id)?.extractionId, oldId);
+  assert.deepEqual(cards.find(row => row.id === archivedRow.id)?.evidenceIds, ["proof-archived"]);
+  assert.deepEqual(cards.find(row => row.id === manualRow.id)?.evidenceIds, ["proof-manual"]);
+  assert.equal(cards.length, 3);
+});
+
 test("concurrent tabs cannot process the full tender twice; obsolete workers cannot overwrite recovery", async () => {
   const ownerId = `lease-${randomUUID()}`;
   await db.insert(usersTable).values({ id: ownerId });
@@ -264,7 +323,7 @@ test("legacy chunk jobs upgrade from complete original sources without exposing 
     assert.equal(inProgress.requirementsExtraction!.job!.legacyCheckpoint!.results![0]!.result.items[0]!.title, "saved previous clause");
     const publicJob = (await tenderView(inProgress)).requirementsExtraction!.job!;
     assert.equal("legacyCheckpoint" in publicJob, false);
-    assert.equal("strategy" in publicJob, false);
+    assert.equal(publicJob.strategy, "full_tender");
     return { ...result("first"), items: [...result("first").items, ...result("second").items] };
   });
   assert.equal(calls, 1);

@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, ne, inArray, sql } from "drizzle-orm";
 import { db, evidenceTable, requirementItemsTable, tendersTable, type RequirementsExtraction } from "@workspace/db";
-import { assembleTenderRequirements, extractSection, InvalidSectionOutputError, prepareTenderSections, requirementsInFlight, splitTenderText, type ExtractedSection, type RequirementsAiProvider } from "./tender-requirements";
+import { assembleTenderRequirements, extractSection, InvalidSectionOutputError, prepareTenderSections, requirementsBrief, requirementsInFlight, splitTenderText, type ExtractedSection, type RequirementsAiProvider } from "./tender-requirements";
+import { filterSavedRequirementIndices, savedRequirementFilterInput } from "./requirement-filter";
 import { appendRequirementDrafts, requirementKey } from "./requirement-items";
 import { EVALUATED_CARD_SCOPE } from "./requirement-scope";
 
@@ -68,9 +69,51 @@ export async function queueRequirements(tenderId: string, ownerId: string, provi
   });
 }
 
+export async function queueSavedRequirementFilter(tenderId: string, ownerId: string) {
+  return db.transaction(async tx => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`requirements:${ownerId}`}))`);
+    const [tender] = await tx.select().from(tendersTable).where(and(eq(tendersTable.id, tenderId), eq(tendersTable.ownerId, ownerId))).for("update");
+    if (!tender) throw new Error("Tender not found.");
+    const previous = tender.requirementsExtraction;
+    if (!previous?.items?.length) throw new Error("No saved extracted list is available to filter. Use full-tender extraction first.");
+    if (previous.job?.status === "processing") {
+      if (previous.job.strategy === "filter_saved") return tender;
+      throw new Error("Full-tender extraction is already running. Wait for it to finish before filtering.");
+    }
+    const active = await tx.select({ id: tendersTable.id }).from(tendersTable).where(and(eq(tendersTable.ownerId, ownerId), ne(tendersTable.id, tenderId),
+      sql`requirements_extraction->'job'->>'status' = 'processing'`)).limit(1);
+    if (active.length || requirementsInFlight.has(ownerId)) throw new Error("Another tender extraction is already running. Open that tender to finish it.");
+    const files = await tx.select().from(evidenceTable).where(and(eq(evidenceTable.tenderId, tenderId), eq(evidenceTable.category, "tender_rfp")));
+    const sourceFiles = files.map(f => ({ id: f.id, name: f.name }));
+    if (!sourcesMatch(sourceFiles, previous.sourceFiles)) throw new Error("Tender documents changed since this saved list. Use full-tender extraction against the current documents first.");
+    const rows = await tx.select({ sourceKey: requirementItemsTable.sourceKey }).from(requirementItemsTable).where(and(eq(requirementItemsTable.tenderId, tenderId), eq(requirementItemsTable.ownerId, ownerId)));
+    const retainedKeys = new Set(rows.map(row => row.sourceKey));
+    // Do not resurrect deleted cards or classify manually added/edited entries.
+    const seenKeys = new Set<string>();
+    const filterItemIndexes = previous.items.flatMap((item, index) => {
+      const key = requirementKey(item);
+      if (!retainedKeys.has(key) || seenKeys.has(key)) return [];
+      seenKeys.add(key);
+      return [index];
+    });
+    if (!filterItemIndexes.length) throw new Error("No retained automatically extracted cards are available to filter.");
+    const input = savedRequirementFilterInput(filterItemIndexes.map(index => previous.items![index]!));
+    const job: Job = {
+      id: randomUUID(), strategy: "filter_saved", provider: "anthropic", status: "processing",
+      completedSections: 0, totalSections: 1, error: null, sourceFiles, cardScope: EVALUATED_CARD_SCOPE,
+      filterCandidateCount: filterItemIndexes.length, filterItemIndexes,
+      sections: [{ label: "Saved requirement list", text: input, depth: 0, attempts: 0 }], results: [],
+      legacyCheckpoint: previous.job?.legacyCheckpoint,
+    };
+    const [updated] = await tx.update(tendersTable).set({ requirementsExtraction: { ...previous, job }, updatedAt: new Date() })
+      .where(eq(tendersTable.id, tenderId)).returning();
+    return updated!;
+  });
+}
+
 // Exactly ONE provider call per HTTP request. Full-tender jobs never split
 // inputs or publish partial output; retries require an explicit user action.
-export async function advanceSection(job: Job, extractor?: typeof extractSection): Promise<Job> {
+export async function advanceSection(job: Job, extractor?: typeof extractSection, filterer: typeof filterSavedRequirementIndices = filterSavedRequirementIndices): Promise<Job> {
   const next = structuredClone(job);
   const section = next.sections?.[0];
   if (!section) return next;
@@ -84,13 +127,22 @@ export async function advanceSection(job: Job, extractor?: typeof extractSection
     section.text.length + separator.length + following.text.length <= 18000;
   const input = batched ? section.text + separator + following.text : section.text;
   try {
-    const result: ExtractedSection = await (extractor ?? extractSection)(input, next.totalSections > 1, next.provider ?? "openai");
-    next.results = [...(next.results ?? []), { label: batched ? `${section.label} + ${following.label}` : section.label, result }];
+    if (next.strategy === "filter_saved") {
+      if (!next.filterItemIndexes?.length || next.filterCandidateCount !== next.filterItemIndexes.length) throw new Error("Saved filtering snapshot is incomplete.");
+      next.filterSelectedIndexes = await filterer(input, next.filterCandidateCount);
+    } else {
+      const result: ExtractedSection = await (extractor ?? extractSection)(input, next.totalSections > 1, next.provider ?? "openai");
+      next.results = [...(next.results ?? []), { label: batched ? `${section.label} + ${following.label}` : section.label, result }];
+    }
     next.sections!.splice(0, batched ? 2 : 1);
     next.completedSections += batched ? 2 : 1;
     next.error = null;
   } catch (error) {
-    if (next.strategy === "full_tender") {
+    if (next.strategy === "filter_saved") {
+      section.attempts++;
+      next.status = "failed";
+      next.error = "The AI could not finish classifying every saved item. Your original list, working brief, evidence and vendor choices are unchanged. Retry filtering explicitly.";
+    } else if (next.strategy === "full_tender") {
       section.attempts++;
       next.status = "failed";
       const detail = error && typeof error === "object"
@@ -130,11 +182,11 @@ export async function advanceSection(job: Job, extractor?: typeof extractSection
   return next;
 }
 
-export async function processRequirements(tenderId: string, ownerId: string, extractor?: typeof extractSection) {
+export async function processRequirements(tenderId: string, ownerId: string, extractor?: typeof extractSection, filterer?: typeof filterSavedRequirementIndices) {
   const [existing] = await db.select({ extraction: tendersTable.requirementsExtraction }).from(tendersTable)
     .where(and(eq(tendersTable.id, tenderId), eq(tendersTable.ownerId, ownerId)));
   if (!existing) throw new Error("Tender not found.");
-  if (existing.extraction?.job?.status === "processing" && existing.extraction.job.strategy !== "full_tender") {
+  if (existing.extraction?.job?.status === "processing" && existing.extraction.job.strategy !== "full_tender" && existing.extraction.job.strategy !== "filter_saved") {
     await queueRequirements(tenderId, ownerId, true);
   }
   const claimed = await db.transaction(async tx => {
@@ -151,7 +203,7 @@ export async function processRequirements(tenderId: string, ownerId: string, ext
       return null;
     }
     if (job.status !== "processing" || (job.token && job.leaseUntil && Date.parse(job.leaseUntil) > Date.now())) return null;
-    if (job.strategy !== "full_tender") {
+    if (job.strategy !== "full_tender" && job.strategy !== "filter_saved") {
       await tx.update(tendersTable).set({ requirementsExtraction: { ...extraction, job: {
         ...job, status: "failed", error: "Tender documents changed. Choose Extract again to review all current sources together.", token: null, leaseUntil: null,
       } } }).where(eq(tendersTable.id, tenderId));
@@ -168,7 +220,7 @@ export async function processRequirements(tenderId: string, ownerId: string, ext
     return { extraction, job: claimedJob, token };
   });
   if (!claimed) return;
-  const job = await advanceSection(claimed.job, extractor);
+  const job = await advanceSection(claimed.job, extractor, filterer);
   await db.transaction(async tx => {
     const [current] = await tx.select().from(tendersTable).where(and(eq(tendersTable.id, tenderId), eq(tendersTable.ownerId, ownerId))).for("update");
     // Fence workers replaced after a restart, expiry, deletion or changed job.
@@ -182,18 +234,38 @@ export async function processRequirements(tenderId: string, ownerId: string, ext
       // Save both the brief and ALL cards atomically. A publication failure must
       // not roll back the successful section checkpoint.
       try {
-        const completed = assembleTenderRequirements(job.sourceFiles, job.results ?? []);
+        let completed: RequirementsExtraction;
+        if (job.strategy === "filter_saved") {
+          const original = current.requirementsExtraction;
+          if (!job.filterSelectedIndexes || !job.filterItemIndexes || !original.items) throw new Error("The saved filtering result is incomplete; the original list remains unchanged.");
+          const rows = await tx.select({ sourceKey: requirementItemsTable.sourceKey }).from(requirementItemsTable).where(and(eq(requirementItemsTable.tenderId, tenderId), eq(requirementItemsTable.ownerId, ownerId)));
+          const retained = new Set(rows.map(row => row.sourceKey));
+          const items = job.filterSelectedIndexes.map(index => {
+            const itemIndex = job.filterItemIndexes![index];
+            const item = itemIndex === undefined ? undefined : original.items![itemIndex];
+            if (!item) throw new Error("The saved list changed during filtering; the original list remains unchanged.");
+            return item;
+          }).filter(item => retained.has(requirementKey(item)));
+          completed = assembleTenderRequirements(job.sourceFiles, [{ label: "Saved requirement list", result: {
+            items, requirements: requirementsBrief(items),
+            summary: `Filtered ${items.length} assessed requirements from ${job.filterCandidateCount} saved extracted items, without extracting the tender again. Review the retained clauses against the original tender.`,
+            warnings: ["Filtering classified saved clause quotes and references; no descriptions or quantities were rewritten. Excluded cards and their evidence remain stored, and manually added requirements are unchanged."],
+          } }]);
+          job.filterKeptCount = items.length;
+        } else {
+          completed = assembleTenderRequirements(job.sourceFiles, job.results ?? []);
+        }
         // Use a savepoint so any failed insert leaves previous work intact.
         await tx.transaction(async publish => {
-          await appendRequirementDrafts(publish, tenderId, ownerId, completed.id, completed.items ?? []);
+          if (job.strategy !== "filter_saved") await appendRequirementDrafts(publish, tenderId, ownerId, completed.id, completed.items ?? []);
           const keys = (completed.items ?? []).map(requirementKey);
           for (let offset = 0; offset < keys.length; offset += 250) {
-            await publish.update(requirementItemsTable).set({ extractionId: completed.id, reviewStatus: "pending", revision: sql`${requirementItemsTable.revision} + 1`, updatedAt: new Date() })
+            await publish.update(requirementItemsTable).set({ extractionId: completed.id, ...(job.strategy === "filter_saved" ? {} : { reviewStatus: "pending" as const }), revision: sql`${requirementItemsTable.revision} + 1`, updatedAt: new Date() })
               .where(and(eq(requirementItemsTable.tenderId, tenderId), inArray(requirementItemsTable.sourceKey, keys.slice(offset, offset + 250))));
           }
         });
         job.status = "completed"; job.error = null;
-        delete job.sections; delete job.results; delete job.legacyCheckpoint;
+        delete job.sections; delete job.results; delete job.legacyCheckpoint; delete job.filterItemIndexes; delete job.filterSelectedIndexes;
         extraction = { ...completed, job };
       } catch (error) {
         job.status = "failed"; job.error = error instanceof Error ? error.message : "Could not save the complete extraction.";

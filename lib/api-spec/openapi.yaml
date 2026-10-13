@@ -1104,6 +1104,7 @@ components:
       properties:
         aiConsent: { type: boolean, enum: [true] }
         provider: { type: string, enum: [openai, anthropic] }
+        operation: { type: string, enum: [extract, filter_saved] }
     RequirementDraft:
       type: object
       required: [title, description, category, sourceReference, sourceQuote, quantity, unit, requiresVendor]
@@ -1277,6 +1278,9 @@ components:
         totalSections: { type: integer }
         error: { type: [string, "null"] }
         provider: { type: string, enum: [openai, anthropic] }
+        strategy: { type: string, enum: [full_tender, filter_saved] }
+        filterCandidateCount: { type: integer }
+        filterKeptCount: { type: integer }
         sourceFiles:
           type: array
           items:

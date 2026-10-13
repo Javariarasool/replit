@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assembleTenderRequirements, extractSectionWithRecovery, InvalidSectionOutputError, parseSectionOutput, responseJson } from "./tender-requirements";
+import { parseSavedRequirementSelection, savedRequirementFilterInput } from "./requirement-filter";
 
 test("provider JSON wrappers are accepted only when the entire response is complete JSON", () => {
   const value = { summary: "Complete", warnings: [], items: [] };
@@ -8,6 +9,15 @@ test("provider JSON wrappers are accepted only when the entire response is compl
   assert.deepEqual(responseJson("```json\n" + JSON.stringify(value) + "\n```"), value);
   assert.throws(() => responseJson("Here is a fragment:\n" + JSON.stringify(value)), InvalidSectionOutputError);
   assert.throws(() => responseJson('{"summary":"unfinished"'), InvalidSectionOutputError);
+});
+test("saved-list filtering classifies every original index exactly once", () => {
+  const entries = [{ ...result("Mandatory evaluated certification.").items[0]!, sourceQuote: "Mandatory certification" }];
+  assert.match(savedRequirementFilterInput(entries), /Mandatory certification/);
+  assert.deepEqual(parseSavedRequirementSelection({ keep: [0, 2], exclude: [1] }, 3), [0, 2]);
+  assert.deepEqual(parseSavedRequirementSelection({ keep: [], exclude: [0] }, 1), []);
+  assert.throws(() => parseSavedRequirementSelection({ keep: [0], exclude: [] }, 2), InvalidSectionOutputError);
+  assert.throws(() => parseSavedRequirementSelection({ keep: [0], exclude: [0] }, 2), InvalidSectionOutputError);
+  assert.throws(() => parseSavedRequirementSelection({ keep: [2], exclude: [0] }, 2), InvalidSectionOutputError);
 });
 import { visibleRequirements } from "./requirement-scope";
 import type { RequirementItem, RequirementsExtraction } from "@workspace/db";
@@ -64,6 +74,18 @@ test("missing or invented assessment evidence is rejected instead of creating a 
   assert.throws(() => parseSectionOutput(output, "Agency history, no evaluation requirement"), InvalidSectionOutputError);
   const { assessmentBasis: _basis, assessmentQuote: _quote, ...legacy } = output.items[0]!;
   assert.throws(() => parseSectionOutput({ ...output, items: [legacy] }), InvalidSectionOutputError);
+});
+
+test("one ungrounded assessment quote does not discard other grounded requirements", () => {
+  const output = result("The bidder must submit a signed compliance form.");
+  const parsed = parseSectionOutput({ ...output, items: [
+    output.items[0],
+    { ...output.items[0], title: "Unsupported statement", assessmentQuote: "This quotation does not occur in the original tender." },
+  ] }, output.requirements);
+  assert.equal(parsed.items.length, 1);
+  assert.equal(parsed.items[0]?.title, "Clause");
+  assert.ok(parsed.warnings.some(w => /1 AI candidate requirement/.test(w)));
+  assert.doesNotMatch(parsed.requirements, /Unsupported statement/);
 });
 
 test("context-only input has no invented cards or statement-based brief entries", () => {

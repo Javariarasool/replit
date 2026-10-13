@@ -8,6 +8,7 @@
 import type { RequirementsJobProvider } from './requirementsJobProvider';
 import type { RequirementsJobSourceFilesItem } from './requirementsJobSourceFilesItem';
 import type { RequirementsJobStatus } from './requirementsJobStatus';
+import type { RequirementsJobStrategy } from './requirementsJobStrategy';
 
 export interface RequirementsJob {
   id: string;
@@ -17,5 +18,8 @@ export interface RequirementsJob {
   /** @nullable */
   error: string | null;
   provider?: RequirementsJobProvider;
+  strategy?: RequirementsJobStrategy;
+  filterCandidateCount?: number;
+  filterKeptCount?: number;
   sourceFiles: RequirementsJobSourceFilesItem[];
 }

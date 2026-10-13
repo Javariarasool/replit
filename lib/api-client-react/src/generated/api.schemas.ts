@@ -388,9 +388,18 @@ export const ExtractRequirementsInputProvider = {
   anthropic: 'anthropic',
 } as const;
 
+export type ExtractRequirementsInputOperation = typeof ExtractRequirementsInputOperation[keyof typeof ExtractRequirementsInputOperation];
+
+
+export const ExtractRequirementsInputOperation = {
+  extract: 'extract',
+  filter_saved: 'filter_saved',
+} as const;
+
 export interface ExtractRequirementsInput {
   aiConsent: true;
   provider?: ExtractRequirementsInputProvider;
+  operation?: ExtractRequirementsInputOperation;
 }
 
 export type RequirementDraftCategory = typeof RequirementDraftCategory[keyof typeof RequirementDraftCategory];
@@ -737,6 +746,14 @@ export const RequirementsJobProvider = {
   anthropic: 'anthropic',
 } as const;
 
+export type RequirementsJobStrategy = typeof RequirementsJobStrategy[keyof typeof RequirementsJobStrategy];
+
+
+export const RequirementsJobStrategy = {
+  full_tender: 'full_tender',
+  filter_saved: 'filter_saved',
+} as const;
+
 export type RequirementsJobSourceFilesItem = {
   id: string;
   name: string;
@@ -750,6 +767,9 @@ export interface RequirementsJob {
   /** @nullable */
   error: string | null;
   provider?: RequirementsJobProvider;
+  strategy?: RequirementsJobStrategy;
+  filterCandidateCount?: number;
+  filterKeptCount?: number;
   sourceFiles: RequirementsJobSourceFilesItem[];
 }
 

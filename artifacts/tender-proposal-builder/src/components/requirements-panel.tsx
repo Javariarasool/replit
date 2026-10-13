@@ -13,7 +13,7 @@ interface Props {
   extracting: boolean;
   error: string;
   onSave: (requirements: string, summary: string, reviewedExtractionId?: string) => void;
-  onExtract: (provider: 'openai' | 'anthropic') => void;
+  onExtract: (provider: 'openai' | 'anthropic', operation?: 'extract' | 'filter_saved') => void;
   onUpload: () => void;
 }
 
@@ -32,7 +32,8 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
   const [summary, setSummary] = useState(savedDraft?.summary ?? tender.summary ?? '');
   const [reviewId, setReviewId] = useState<string | undefined>(savedDraft?.reviewId);
   const [consentOpen, setConsentOpen] = useState(false);
-  const [provider, setProvider] = useState<'openai' | 'anthropic'>('anthropic');
+  const [consentOperation, setConsentOperation] = useState<'extract' | 'filter_saved'>('extract');
+  const [provider, setProvider] = useState<'openai' | 'anthropic'>('openai');
   const previous = useRef({ requirements: tender.requirements ?? '', summary: tender.summary ?? '' });
   useEffect(() => {
     const old = previous.current;
@@ -54,9 +55,12 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
   }, [draftKey, userId, requirements, summary, reviewId, tender.requirements, tender.summary]);
   const extraction = tender.requirementsExtraction;
   const job = extraction?.job;
-  const consentProvider = job?.status === 'processing' ? job.provider ?? 'openai' : provider;
+  const consentProvider = consentOperation === 'filter_saved' ? 'anthropic' : job?.status === 'processing' ? job.provider ?? 'openai' : provider;
   const rfpFiles = files.filter(f => f.category === 'tender_rfp');
   const changed = !!extraction && JSON.stringify(rfpFiles.map(f => f.id).sort()) !== JSON.stringify(extraction.sourceFiles.map(f => f.id).sort());
+  const canFilterSaved = !!extraction?.items?.length && extraction.cardScope !== 'evaluated_only' && !changed;
+  const openExtractConsent = () => { setConsentOperation('extract'); setConsentOpen(true); };
+  const openFilterConsent = () => { setConsentOperation('filter_saved'); setConsentOpen(true); };
   const pending = !!extraction && !extraction.reviewedAt;
   const waitingForOcr = /Verify the OCR/i.test(error);
   const useExtraction = () => {
@@ -70,18 +74,19 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
   return <section className="space-y-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 className="font-[Manrope] text-xl font-bold">Assessed requirements</h2><p className="mt-1 text-xs text-muted-foreground">Extract the complete tender in one pass. Only requirements assessed for compliance, eligibility, scoring or mandatory submission belong in the checklist—not general statements.</p></div>
-      <div className="flex gap-2"><Button variant="secondary" onClick={onUpload} disabled={extracting} data-testid="button-upload-tender">Upload tender</Button>
-        <Button onClick={() => setConsentOpen(true)} disabled={extracting || saving || !rfpFiles.length} data-testid="button-extract-requirements"><Sparkles size={15}/>{extraction ? 'Extract again' : 'Extract from tender'}</Button></div>
+      <div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={onUpload} disabled={extracting} data-testid="button-upload-tender">Upload tender</Button>
+        {canFilterSaved && <Button variant="secondary" onClick={openFilterConsent} disabled={extracting || saving} data-testid="button-filter-saved-requirements">Filter saved list ({extraction!.items!.length})</Button>}
+        <Button onClick={openExtractConsent} disabled={extracting || saving || !rfpFiles.length} data-testid="button-extract-requirements"><Sparkles size={15}/>{extraction ? 'Extract again' : 'Extract from tender'}</Button></div>
     </div>
     {job?.provider && <p className="text-xs text-muted-foreground" data-testid="text-extraction-provider">{job.status === 'completed' ? 'Last extraction' : 'Current extraction attempt'}: {job.provider === 'anthropic' ? 'Claude Sonnet 5.5' : 'OpenAI'}.</p>}
     <RequirementWorkspace tender={tender} files={files}/>
-    {extracting && <div role="status" data-testid="requirements-extraction-progress" className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm"><LoaderCircle size={18} className="animate-spin"/><div>{job?.status === 'processing' ? 'Reviewing the complete tender for assessed requirements…' : 'Preparing the complete tender for requirement extraction.'}<p className="mt-1 text-xs text-muted-foreground">All tender sources are reviewed together in one AI request, without processing chunks. The checklist appears only when the full result is ready. Keep this tender open while processing. Your saved brief and evidence stay unchanged.</p>{job?.error && <p className="mt-2">{job.error}</p>}</div></div>}
-    {job?.status === 'failed' && <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{job.error}</p><p className="mt-2">No partial brief or requirement list has replaced your previous work.</p><Button className="mt-3" onClick={() => setConsentOpen(true)} disabled={saving} data-testid="button-retry-extraction">Retry full-tender extraction</Button></div>}
-    {job?.status === 'completed' && <p role="status" className="text-sm text-primary">The assessed requirements and requirements-only brief are ready for human review.</p>}
+    {extracting && <div role="status" data-testid="requirements-extraction-progress" className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm"><LoaderCircle size={18} className="animate-spin"/><div>{job?.strategy === 'filter_saved' ? `Filtering ${job.filterCandidateCount ?? 'saved'} previously extracted items…` : job?.status === 'processing' ? 'Reviewing the complete tender for assessed requirements…' : 'Preparing the complete tender for requirement extraction.'}<p className="mt-1 text-xs text-muted-foreground">{job?.strategy === 'filter_saved' ? 'The saved list is classified without reading the document again. Nothing changes until every saved item is classified; evidence and vendor choices are preserved.' : 'All tender sources are reviewed together in one AI request, without processing chunks. The checklist appears only when the full result is ready. Keep this tender open while processing. Your saved brief and evidence stay unchanged.'}</p>{job?.error && <p className="mt-2">{job.error}</p>}</div></div>}
+    {job?.status === 'failed' && <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{job.error}</p><p className="mt-2">No partial brief or requirement list has replaced your previous work.</p><Button className="mt-3" onClick={job.strategy === 'filter_saved' ? openFilterConsent : openExtractConsent} disabled={saving} data-testid="button-retry-extraction">{job.strategy === 'filter_saved' ? 'Retry filtering saved list' : 'Retry full-tender extraction'}</Button></div>}
+    {job?.status === 'completed' && <p role="status" className="text-sm text-primary">{job.strategy === 'filter_saved' ? `Retained ${job.filterKeptCount ?? 'assessed'} of ${job.filterCandidateCount ?? 'saved'} extracted items for review. Excluded items and evidence remain stored.` : 'The assessed requirements and requirements-only brief are ready for human review.'}</p>}
     {error && <div role={waitingForOcr ? 'status' : 'alert'} className={cn('rounded-xl border p-4 text-sm', waitingForOcr ? 'border-amber-900/20 bg-amber-900/5 text-amber-950' : 'border-destructive/20 bg-destructive/5 text-destructive')}>
       {waitingForOcr && <p className="mb-2 font-bold">OCR verification required—not a failed upload</p>}
       <p>{error}</p>
-      {job?.status === 'processing' && <Button className="mt-3" onClick={() => setConsentOpen(true)} disabled={saving} data-testid="button-resume-extraction">Resume saved extraction</Button>}
+      {job?.status === 'processing' && <Button className="mt-3" onClick={job.strategy === 'filter_saved' ? openFilterConsent : openExtractConsent} disabled={saving} data-testid="button-resume-extraction">Resume saved {job.strategy === 'filter_saved' ? 'filter' : 'extraction'}</Button>}
       {waitingForOcr && <p className="mt-2">Review and verify the OCR for each scanned source below, then choose Extract from tender. Unverified OCR is not sent to the requirements AI.</p>}
     </div>}
     {!rfpFiles.length && <p className="text-sm text-muted-foreground">Upload a Tender / RFP document to begin. Manual entry remains available below.</p>}
@@ -104,15 +109,15 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
         <Field label="Summary"><textarea className={cn(inputClass, 'min-h-[88px] resize-y')} value={summary} onChange={e => setSummary(e.target.value)} data-testid="textarea-summary"/></Field></div>
       <div className="mt-4 flex justify-end"><Button onClick={save} disabled={saving || extracting || (pending && !!reviewId && (reviewId !== extraction?.id || changed))} data-testid="button-save-requirements">{saving ? <LoaderCircle size={15} className="animate-spin"/> : <Check size={15}/>}Save brief{pending && reviewId === extraction?.id ? ' & confirm review' : ''}</Button></div>
     </div>
-    {consentOpen && <Dialog title="Extract tender requirements" description="Read all documents attached in the Tender / RFP category." onClose={() => setConsentOpen(false)}>
-      <Field label="AI provider">
+    {consentOpen && <Dialog title={consentOperation === 'filter_saved' ? 'Filter saved requirements' : 'Extract tender requirements'} description={consentOperation === 'filter_saved' ? 'Classify the saved list without reading the tender documents again.' : 'Read all documents attached in the Tender / RFP category.'} onClose={() => setConsentOpen(false)}>
+      {consentOperation === 'extract' && <Field label="AI provider">
         <select className={inputClass} value={consentProvider} disabled={job?.status === 'processing'} data-testid="select-extraction-provider" onChange={event => setProvider(event.target.value as 'openai' | 'anthropic')}>
-          <option value="anthropic">Claude Sonnet 5.5</option>
           <option value="openai">OpenAI</option>
+          <option value="anthropic">Claude Sonnet 5.5</option>
         </select>
-      </Field>
-      <p className="mt-3 text-sm leading-6">Readable tender text and its notes will be sent to {consentProvider === 'anthropic' ? 'Claude through Anthropic' : 'OpenAI'} using Replit AI Integrations. Usage is billed to your Replit credits. Original document images are not sent. Results are saved for review; your working brief is not replaced automatically.</p>
-      <div className="mt-5 flex justify-end gap-2"><Button variant="quiet" onClick={() => setConsentOpen(false)}>Cancel</Button><Button data-testid="button-confirm-extraction" onClick={() => { setConsentOpen(false); onExtract(consentProvider); }}>Agree and extract</Button></div>
+      </Field>}
+      <p className="mt-3 text-sm leading-6">{consentOperation === 'filter_saved' ? 'Saved requirement titles, original source quotes and references—not the tender document or its images—will be sent to Claude through Replit AI Integrations. Every saved item must receive a keep or exclude decision before the reviewed shortlist appears. Original evidence and vendor choices stay stored.' : `Readable tender text and its notes will be sent to ${consentProvider === 'anthropic' ? 'Claude through Anthropic' : 'OpenAI'} using Replit AI Integrations. Original document images are not sent. Results are saved for review; your working brief is not replaced automatically.`} Usage is billed to your Replit credits.</p>
+      <div className="mt-5 flex justify-end gap-2"><Button variant="quiet" onClick={() => setConsentOpen(false)}>Cancel</Button><Button data-testid="button-confirm-extraction" onClick={() => { setConsentOpen(false); onExtract(consentProvider, consentOperation); }}>Agree and {consentOperation === 'filter_saved' ? 'filter' : 'extract'}</Button></div>
     </Dialog>}
   </section>;
 }

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod/v4";
 import Anthropic from "@anthropic-ai/sdk";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import type { Evidence, RequirementsExtraction } from "@workspace/db";
+import type { Evidence, RequirementDraft, RequirementsExtraction } from "@workspace/db";
 import { ensureExtraction, draftingText } from "./document-extractions";
 import { requirementDraftSchema } from "./requirement-items";
 import { EVALUATED_CARD_SCOPE } from "./requirement-scope";
@@ -50,6 +50,11 @@ export function splitTenderText(text: string, size = 8000): string[] {
 }
 
 export type ExtractedSection = z.infer<typeof resultSchema>;
+export function requirementsBrief(items: RequirementDraft[]): string {
+  return items.length ? items.map((item, index) =>
+    `## ${index + 1}. ${item.title}\n\n${item.description}\n\n${item.quantity != null ? `Quantity: ${item.quantity}${item.unit ? ` ${item.unit}` : ""}\n\n` : ""}Source: ${item.sourceReference}\n\n> ${item.sourceQuote.replace(/\n/g, "\n> ")}`
+  ).join("\n\n") : "No assessed requirements were identified in the supplied tender.";
+}
 export class InvalidSectionOutputError extends Error {
   constructor(readonly reason: "incomplete" | "invalid_json" | "invalid_shape", readonly validationIssues: string[] = [], readonly providerStopReason?: string) {
     super("The AI did not return a complete, valid requirements section.");
@@ -77,16 +82,15 @@ export function parseSectionOutput(response: unknown, document?: string): Extrac
   if (!parsed.success) throw new InvalidSectionOutputError("invalid_shape", parsed.error.issues.map(issue => `${issue.path.join(".")}:${issue.code}`).slice(0, 20));
   const assessed = parsed.data.items.filter(item => item.assessmentBasis !== "context");
   const normalize = (text: string) => text.trim().replace(/\s+/g, " ");
-  for (const item of assessed) {
-    if (!item.assessmentQuote.trim() || (document !== undefined && !normalize(document).includes(normalize(item.assessmentQuote)))) {
-      throw new InvalidSectionOutputError("invalid_shape", ["items.assessmentQuote:missing_or_ungrounded"]);
-    }
+  const grounded = assessed.filter(item => item.assessmentQuote.trim() &&
+    (document === undefined || normalize(document).includes(normalize(item.assessmentQuote))));
+  if (assessed.length && !grounded.length) {
+    throw new InvalidSectionOutputError("invalid_shape", ["items.assessmentQuote:missing_or_ungrounded"]);
   }
-  const items = assessed.map(({ assessmentBasis: _basis, assessmentQuote: _quote, ...item }) => item);
-  const requirements = items.length ? items.map((item, index) =>
-    `## ${index + 1}. ${item.title}\n\n${item.description}\n\n${item.quantity != null ? `Quantity: ${item.quantity}${item.unit ? ` ${item.unit}` : ""}\n\n` : ""}Source: ${item.sourceReference}\n\n> ${item.sourceQuote.replace(/\n/g, "\n> ")}`
-  ).join("\n\n") : "No assessed requirements were identified in the supplied tender.";
+  const items = grounded.map(({ assessmentBasis: _basis, assessmentQuote: _quote, ...item }) => item);
+  const requirements = requirementsBrief(items);
   const result = resultSchema.parse({ ...parsed.data, requirements, items });
+  if (grounded.length !== assessed.length) result.warnings.push(`${assessed.length - grounded.length} AI candidate requirement(s) were excluded because their assessment quotation could not be verified in the tender text. Review the original tender for any missed assessed clauses.`);
   if (uncertain.length) result.warnings.push(`The AI supplied an invalid or non-positive purchase quantity in this source section. Their quantities are unknown where relevant; review the wording and source quotes before entering positive purchase quantities or pricing.`);
   return result;
 }

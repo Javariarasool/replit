@@ -39,7 +39,11 @@ export interface RequirementsExtraction {
     token?: string | null;
     leaseUntil?: string | null;
     cardScope?: "evaluated_only";
-    strategy?: "full_tender";
+    strategy?: "full_tender" | "filter_saved";
+    filterCandidateCount?: number;
+    filterKeptCount?: number;
+    filterItemIndexes?: number[];
+    filterSelectedIndexes?: number[];
     legacyCheckpoint?: {
       completedSections: number;
       totalSections: number;

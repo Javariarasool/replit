@@ -3,7 +3,7 @@ import { ExtractTenderRequirementsBody, ExtractTenderRequirementsParams, Extract
 import { requireAuth, ownedTender, tenderView } from "../lib/tender-data";
 import { InvalidSectionOutputError, requirementsInFlight } from "../lib/tender-requirements";
 import { OcrReviewRequiredError } from "../lib/document-extractions";
-import { queueRequirements, processRequirements } from "../lib/requirements-jobs";
+import { queueRequirements, queueSavedRequirementFilter, processRequirements } from "../lib/requirements-jobs";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -18,7 +18,12 @@ router.post("/tenders/:tenderId/requirements/extract", async (req, res): Promise
   if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
   if (requirementsInFlight.has(owner)) { res.status(429).json({ error: "A requirements extraction is already running. Please wait." }); return; }
   try {
-    const updated = await queueRequirements(tender.id, owner, body.data.provider ?? "openai");
+    if (body.data.operation === "filter_saved" && body.data.provider && body.data.provider !== "anthropic") {
+      res.status(400).json({ error: "Saved-list filtering uses Claude. Explicit Anthropic AI consent is required." }); return;
+    }
+    const updated = body.data.operation === "filter_saved"
+      ? await queueSavedRequirementFilter(tender.id, owner)
+      : await queueRequirements(tender.id, owner, body.data.provider ?? "openai");
     if (!updated) { res.status(404).json({ error: "Tender was removed during extraction." }); return; }
     res.json(ExtractTenderRequirementsResponse.parse(await tenderView(updated)));
   } catch (error) {
