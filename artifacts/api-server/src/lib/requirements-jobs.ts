@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, ne, inArray, sql } from "drizzle-orm";
 import { db, evidenceTable, requirementItemsTable, tendersTable, type RequirementsExtraction } from "@workspace/db";
-import { assembleTenderRequirements, extractSection, InvalidSectionOutputError, prepareTenderSections, requirementsInFlight, splitTenderText, type ExtractedSection } from "./tender-requirements";
+import { assembleTenderRequirements, extractSection, InvalidSectionOutputError, prepareTenderSections, requirementsInFlight, splitTenderText, type ExtractedSection, type RequirementsAiProvider } from "./tender-requirements";
 import { appendRequirementDrafts, requirementKey } from "./requirement-items";
 import { EVALUATED_CARD_SCOPE } from "./requirement-scope";
 
@@ -18,7 +18,9 @@ export async function requirementsProcessing(ownerId: string) {
   return rows.length > 0;
 }
 
-export async function queueRequirements(tenderId: string, ownerId: string, upgradeOnly = false) {
+export async function queueRequirements(tenderId: string, ownerId: string, providerOrUpgrade: RequirementsAiProvider | boolean = "openai", upgradeOnlyArg = false) {
+  const requestedProvider = typeof providerOrUpgrade === "string" ? providerOrUpgrade : undefined;
+  const upgradeOnly = typeof providerOrUpgrade === "boolean" ? providerOrUpgrade : upgradeOnlyArg;
   return db.transaction(async tx => {
     // Serialize starts for this owner, including requests from multiple tabs.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`requirements:${ownerId}`}))`);
@@ -35,8 +37,11 @@ export async function queueRequirements(tenderId: string, ownerId: string, upgra
       if (previous.job.status === "processing" && (previous.job.strategy === "full_tender" ||
         (previous.job.token && previous.job.leaseUntil && Date.parse(previous.job.leaseUntil) > Date.now()))) return tender;
       if (previous.job.status === "failed" && previous.job.strategy === "full_tender" && (previous.job.sections?.length || previous.job.results?.length)) {
+        const provider = previous.job.sections?.length
+          ? requestedProvider ?? previous.job.provider ?? "openai"
+          : previous.job.provider ?? requestedProvider ?? "openai";
         const job: Job = { ...previous.job, status: "processing", error: null, token: null, leaseUntil: null,
-          sections: previous.job.sections?.map(s => ({ ...s, attempts: 0 })) ?? [] };
+          provider, sections: previous.job.sections?.map(s => ({ ...s, attempts: 0 })) ?? [] };
         const [updated] = await tx.update(tendersTable).set({ requirementsExtraction: { ...previous, job }, updatedAt: new Date() })
           .where(eq(tendersTable.id, tenderId)).returning();
         return updated!;
@@ -46,7 +51,7 @@ export async function queueRequirements(tenderId: string, ownerId: string, upgra
       sql`requirements_extraction->'job'->>'status' = 'processing'`)).limit(1);
     if (active.length || requirementsInFlight.has(ownerId)) throw new Error("Another tender extraction is already running. Open that tender to finish it.");
     const documents = await prepareTenderSections(files);
-    const job: Job = { id: randomUUID(), strategy: "full_tender", status: "processing", completedSections: 0, totalSections: documents.length,
+    const job: Job = { id: randomUUID(), strategy: "full_tender", provider: requestedProvider ?? previous?.job?.provider ?? "openai", status: "processing", completedSections: 0, totalSections: documents.length,
       error: null, sourceFiles, cardScope: EVALUATED_CARD_SCOPE, sections: documents.map(d => ({ ...d, depth: 0, attempts: 0 })), results: [] };
     if (previous?.job && previous.job.strategy !== "full_tender" && (previous.job.sections?.length || previous.job.results?.length)) {
       // Retain earlier completed work privately until the replacement succeeds.
@@ -123,7 +128,7 @@ export async function advanceSection(job: Job, extractor = extractSection): Prom
   return next;
 }
 
-export async function processRequirements(tenderId: string, ownerId: string, extractor = extractSection) {
+export async function processRequirements(tenderId: string, ownerId: string, extractor?: typeof extractSection) {
   const [existing] = await db.select({ extraction: tendersTable.requirementsExtraction }).from(tendersTable)
     .where(and(eq(tendersTable.id, tenderId), eq(tendersTable.ownerId, ownerId)));
   if (!existing) throw new Error("Tender not found.");
@@ -161,7 +166,7 @@ export async function processRequirements(tenderId: string, ownerId: string, ext
     return { extraction, job: claimedJob, token };
   });
   if (!claimed) return;
-  const job = await advanceSection(claimed.job, extractor);
+  const job = await advanceSection(claimed.job, extractor ?? ((text, partial) => extractSection(text, partial, claimed.job.provider ?? "openai")));
   await db.transaction(async tx => {
     const [current] = await tx.select().from(tendersTable).where(and(eq(tendersTable.id, tenderId), eq(tendersTable.ownerId, ownerId))).for("update");
     // Fence workers replaced after a restart, expiry, deletion or changed job.

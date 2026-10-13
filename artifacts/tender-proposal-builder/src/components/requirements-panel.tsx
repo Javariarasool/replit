@@ -13,7 +13,7 @@ interface Props {
   extracting: boolean;
   error: string;
   onSave: (requirements: string, summary: string, reviewedExtractionId?: string) => void;
-  onExtract: () => void;
+  onExtract: (provider: 'openai' | 'anthropic') => void;
   onUpload: () => void;
 }
 
@@ -32,6 +32,7 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
   const [summary, setSummary] = useState(savedDraft?.summary ?? tender.summary ?? '');
   const [reviewId, setReviewId] = useState<string | undefined>(savedDraft?.reviewId);
   const [consentOpen, setConsentOpen] = useState(false);
+  const [provider, setProvider] = useState<'openai' | 'anthropic'>('anthropic');
   const previous = useRef({ requirements: tender.requirements ?? '', summary: tender.summary ?? '' });
   useEffect(() => {
     const old = previous.current;
@@ -102,8 +103,14 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
       <div className="mt-4 flex justify-end"><Button onClick={save} disabled={saving || extracting || (pending && !!reviewId && (reviewId !== extraction?.id || changed))} data-testid="button-save-requirements">{saving ? <LoaderCircle size={15} className="animate-spin"/> : <Check size={15}/>}Save brief{pending && reviewId === extraction?.id ? ' & confirm review' : ''}</Button></div>
     </div>
     {consentOpen && <Dialog title="Extract tender requirements" description="Read all documents attached in the Tender / RFP category." onClose={() => setConsentOpen(false)}>
-      <p className="text-sm leading-6">Readable tender text and its notes will be sent to OpenAI through Replit AI Integrations. AI usage is billed to your Replit credits. The result is saved for review; your working brief is not replaced automatically.</p>
-      <div className="mt-5 flex justify-end gap-2"><Button variant="quiet" onClick={() => setConsentOpen(false)}>Cancel</Button><Button data-testid="button-confirm-extraction" onClick={() => { setConsentOpen(false); onExtract(); }}>Agree and extract</Button></div>
+      <Field label="AI provider">
+        <select className={inputClass} value={provider} onChange={event => setProvider(event.target.value as 'openai' | 'anthropic')}>
+          <option value="anthropic">Claude Sonnet 5.5</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </Field>
+      <p className="mt-3 text-sm leading-6">Readable tender text and its notes will be sent to {provider === 'anthropic' ? 'Claude through Anthropic' : 'OpenAI'} using Replit AI Integrations. Usage is billed to your Replit credits. Original document images are not sent. Results are saved for review; your working brief is not replaced automatically.</p>
+      <div className="mt-5 flex justify-end gap-2"><Button variant="quiet" onClick={() => setConsentOpen(false)}>Cancel</Button><Button data-testid="button-confirm-extraction" onClick={() => { setConsentOpen(false); onExtract(provider); }}>Agree and extract</Button></div>
     </Dialog>}
   </section>;
 }

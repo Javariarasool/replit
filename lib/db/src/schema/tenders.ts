@@ -32,6 +32,7 @@ export interface RequirementsExtraction {
     totalSections: number;
     error: string | null;
     sourceFiles: { id: string; name: string }[];
+    provider?: "openai" | "anthropic";
     // Internal durable checkpoints, never included in public tender views.
     sections?: { label: string; text: string; depth: number; attempts: number }[];
     results?: { label: string; result: { summary: string; requirements: string; warnings: string[]; items: import("./requirement-items").RequirementDraft[] } }[];

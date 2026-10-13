@@ -380,8 +380,17 @@ export interface TenderUpdate {
   reviewedExtractionId?: string;
 }
 
+export type ExtractRequirementsInputProvider = typeof ExtractRequirementsInputProvider[keyof typeof ExtractRequirementsInputProvider];
+
+
+export const ExtractRequirementsInputProvider = {
+  openai: 'openai',
+  anthropic: 'anthropic',
+} as const;
+
 export interface ExtractRequirementsInput {
   aiConsent: true;
+  provider?: ExtractRequirementsInputProvider;
 }
 
 export type RequirementDraftCategory = typeof RequirementDraftCategory[keyof typeof RequirementDraftCategory];
@@ -720,6 +729,14 @@ export const RequirementsJobStatus = {
   completed: 'completed',
 } as const;
 
+export type RequirementsJobProvider = typeof RequirementsJobProvider[keyof typeof RequirementsJobProvider];
+
+
+export const RequirementsJobProvider = {
+  openai: 'openai',
+  anthropic: 'anthropic',
+} as const;
+
 export type RequirementsJobSourceFilesItem = {
   id: string;
   name: string;
@@ -732,6 +749,7 @@ export interface RequirementsJob {
   totalSections: number;
   /** @nullable */
   error: string | null;
+  provider?: RequirementsJobProvider;
   sourceFiles: RequirementsJobSourceFilesItem[];
 }
 

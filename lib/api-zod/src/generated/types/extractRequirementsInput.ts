@@ -5,7 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ExtractRequirementsInputProvider } from './extractRequirementsInputProvider';
 
 export interface ExtractRequirementsInput {
   aiConsent: true;
+  provider?: ExtractRequirementsInputProvider;
 }

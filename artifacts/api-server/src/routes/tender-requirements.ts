@@ -18,7 +18,7 @@ router.post("/tenders/:tenderId/requirements/extract", async (req, res): Promise
   if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
   if (requirementsInFlight.has(owner)) { res.status(429).json({ error: "A requirements extraction is already running. Please wait." }); return; }
   try {
-    const updated = await queueRequirements(tender.id, owner);
+    const updated = await queueRequirements(tender.id, owner, body.data.provider ?? "openai");
     if (!updated) { res.status(404).json({ error: "Tender was removed during extraction." }); return; }
     res.json(ExtractTenderRequirementsResponse.parse(await tenderView(updated)));
   } catch (error) {

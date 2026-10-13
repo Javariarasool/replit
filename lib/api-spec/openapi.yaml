@@ -1103,6 +1103,7 @@ components:
       required: [aiConsent]
       properties:
         aiConsent: { type: boolean, enum: [true] }
+        provider: { type: string, enum: [openai, anthropic] }
     RequirementDraft:
       type: object
       required: [title, description, category, sourceReference, sourceQuote, quantity, unit, requiresVendor]
@@ -1275,6 +1276,7 @@ components:
         completedSections: { type: integer }
         totalSections: { type: integer }
         error: { type: [string, "null"] }
+        provider: { type: string, enum: [openai, anthropic] }
         sourceFiles:
           type: array
           items:

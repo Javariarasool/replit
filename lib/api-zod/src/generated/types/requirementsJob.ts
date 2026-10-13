@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RequirementsJobProvider } from './requirementsJobProvider';
 import type { RequirementsJobSourceFilesItem } from './requirementsJobSourceFilesItem';
 import type { RequirementsJobStatus } from './requirementsJobStatus';
 
@@ -15,5 +16,6 @@ export interface RequirementsJob {
   totalSections: number;
   /** @nullable */
   error: string | null;
+  provider?: RequirementsJobProvider;
   sourceFiles: RequirementsJobSourceFilesItem[];
 }

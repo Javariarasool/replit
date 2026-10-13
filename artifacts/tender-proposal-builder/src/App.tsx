@@ -218,7 +218,7 @@ function TenderWorkspace({ userId, sessionExpired }: { userId: string; sessionEx
     void qc.invalidateQueries({ queryKey: getListVendorSourcesQueryKey(id) }); void qc.invalidateQueries({ queryKey: getListProposalsQueryKey(id) });
     void qc.invalidateQueries({ queryKey: getListRequirementItemsQueryKey(id) });
   };
-  const runExtraction = () => { if (sessionExpired) return; setTab('requirements'); setRequirementError(''); extract.mutate({ tenderId: id, data: { aiConsent: true } }, { onSuccess: updated => { qc.setQueryData(getGetTenderQueryKey(id), updated); refresh(); }, onError: e => { refresh(); setRequirementError(`Your uploaded documents and saved brief are unchanged. ${errorText(e)}`); } }); };
+  const runExtraction = (provider: 'openai' | 'anthropic' = 'openai') => { if (sessionExpired) return; setTab('requirements'); setRequirementError(''); extract.mutate({ tenderId: id, data: { aiConsent: true, provider } }, { onSuccess: updated => { qc.setQueryData(getGetTenderQueryKey(id), updated); refresh(); }, onError: e => { refresh(); setRequirementError(`Your uploaded documents and saved brief are unchanged. ${errorText(e)}`); } }); };
   useEffect(() => {
     if (!pendingReadPath || sessionExpired) return;
     const result = localReading.data;
