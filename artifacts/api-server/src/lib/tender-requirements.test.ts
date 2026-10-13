@@ -23,14 +23,15 @@ const result = (quote: string) => ({
   }],
 });
 
-test("only assessed items become cards; general statements stay in the brief", () => {
+test("only assessed items become cards and brief entries; general statements are excluded", () => {
   const assessed = result("Bidder must mark Comply/Not comply for 12 switches.");
   const context = { ...assessed.items[0]!, title: "Agency background",
     sourceQuote: "The agency supports digital transformation.", assessmentBasis: "context" as const, assessmentQuote: "" };
   const parsed = parseSectionOutput({ ...assessed, requirements: "Full tender context and checklist.", items: [...assessed.items, context] });
   assert.equal(parsed.items.length, 1);
   assert.equal(parsed.items[0]!.title, "Clause");
-  assert.equal(parsed.requirements, "Full tender context and checklist.");
+  assert.match(parsed.requirements, /Clause/);
+  assert.doesNotMatch(parsed.requirements, /Agency background|digital transformation|Full tender context/);
   assert.equal("assessmentBasis" in parsed.items[0]!, false);
 });
 
@@ -38,6 +39,15 @@ test("eligibility, scored criteria and mandatory bid submissions remain assessed
   const base = result("Tax registration proof is mandatory. Experience scores 20 points. Signed compliance form is required.");
   const items = ["eligibility", "scored", "mandatory_submission"].map(assessmentBasis => ({ ...base.items[0]!, assessmentBasis }));
   assert.equal(parseSectionOutput({ ...base, items }, base.requirements).items.length, 3);
+});
+
+test("one complete-tender response can retain more than 300 assessed requirements without a narrative brief", () => {
+  const base = result("The bidder must mark Comply or Not comply.");
+  const { requirements: _legacyBrief, ...output } = base;
+  const items = Array.from({ length: 350 }, (_, i) => ({ ...base.items[0]!, title: `Assessed clause ${i}` }));
+  const parsed = parseSectionOutput({ ...output, items }, base.requirements);
+  assert.equal(parsed.items.length, 350);
+  assert.match(parsed.requirements, /Assessed clause 349/);
 });
 
 test("missing or invented assessment evidence is rejected instead of creating a general-statement card", () => {
@@ -48,13 +58,14 @@ test("missing or invented assessment evidence is rejected instead of creating a 
   assert.throws(() => parseSectionOutput({ ...output, items: [legacy] }), InvalidSectionOutputError);
 });
 
-test("context-only sections can complete with no cards without losing their brief", () => {
+test("context-only input has no invented cards or statement-based brief entries", () => {
   const output = result("The agency supports digital transformation.");
   const parsed = parseSectionOutput({ ...output, items: [{ ...output.items[0], assessmentBasis: "context", assessmentQuote: "" }] });
   const extraction = assembleTenderRequirements([{ id: "source", name: "context.pdf" }], [{ label: "context.pdf", result: parsed }]);
   assert.deepEqual(extraction.items, []);
   assert.equal(extraction.cardScope, "evaluated_only");
-  assert.equal(extraction.requirements, output.requirements);
+  assert.match(extraction.requirements, /No assessed requirements/);
+  assert.doesNotMatch(extraction.requirements, /digital transformation/);
   assert.ok(extraction.warnings.some(w => /No bid-assessment/.test(w)));
 });
 
@@ -103,7 +114,7 @@ test("a non-purchase zero does not discard the brief or any individual requireme
   const output = result("Advance payment must be 0%; supply 12 switches.");
   output.items[0]!.quantity = 0;
   const parsed = parseSectionOutput(output);
-  assert.equal(parsed.requirements, output.requirements);
+  assert.ok(parsed.requirements.includes(output.requirements));
   assert.equal(parsed.items.length, 1);
   assert.equal(parsed.items[0]!.quantity, null);
   assert.equal(parsed.items[0]!.sourceQuote, output.items[0]!.sourceQuote);

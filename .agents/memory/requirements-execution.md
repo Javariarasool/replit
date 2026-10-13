@@ -1,22 +1,22 @@
 ---
 name: Large tender extraction execution
-description: Bound AI work to a single section per request and retain durable checkpoints for larger tenders
+description: Full-tender single-request extraction, assessed-only briefs and safe migration of earlier jobs
 ---
 
-Requirement extraction must not process an entire large tender in one HTTP request. Each processing request makes at most one bounded provider call; malformed output is divided and saved for later requests, not recursively retried within the same request.
+Use one bounded AI request for the complete supplied tender. Do not silently divide it into processing chunks or recursively retry smaller fragments.
 
-**Why:** Live large-tender extraction was aborted at the five-minute request boundary. Smaller input chunks alone did not solve the problem while every chunk and recovery attempt still ran inside that request.
+**Why:** The user explicitly requested a return to all-at-once extraction after repeated failures and slow progress with chunking. This supersedes the earlier chunk-based execution decision.
 
-**How to apply:** Persist completed sections, pending sections and consented job state. Resume through authenticated requests while the tender is open; do not assume background timers keep autoscaled deployments alive. Fence expired attempts, keep source text and internal leases out of public responses, and atomically publish the whole brief and individual requirements only after all sections succeed. Preserve saved human work during failure and retry.
+**How to apply:** Include every verified source and its human notes once. Keep the call bounded below the proxy lifetime, fence expired attempts and publish the brief and cards atomically only after complete valid output. On input-capacity, output-truncation or service failure, preserve previous work and require explicit retry rather than silently splitting or dropping text. Do not assume background timers keep autoscaled deployments alive.
 
-Recovery splits must always advance, with overlap bounded relative to the current chunk size.
+Only assessed requirements belong in either the checklist or the requirements brief; general narrative may remain separate in the summary.
 
-**Why:** A fixed large overlap combined with newline alignment can make a small recovery split repeat or move backwards indefinitely. Live extraction then errors without checkpointing progress, even though the server health check passes.
+**Why:** The user reiterated “just the actual requirements not statements.” A free-form AI brief could still include general statements even when checklist cards were filtered.
 
-**How to apply:** Include regression cases with newline-aligned recovery-sized inputs, verify full source coverage, and retain completed checkpoints. Bounded batching of small untouched chunks may reduce provider calls, but malformed batches must fall back to the original individual inputs; never relax source grounding or publish partial cards for speed.
+**How to apply:** Build the requirements brief from validated assessed items, not free-form model narrative. Preserve exact constraints and source references; keep human review mandatory. Do not drop remaining requirements to fit an arbitrary per-chunk item limit.
 
-User-facing progress counts must say “processing chunks,” not imply a count of the tender’s numbered sections.
+Earlier unfinished jobs may switch strategies only against the same already-consented sources. Retain their checkpoints privately until the full replacement succeeds.
 
-**Why:** The user explicitly requested this distinction after comparing the progress count with the tender’s actual section count.
+**Why:** Changing execution must not erase human work or silently authorize newly uploaded documents.
 
-**How to apply:** Treat chunk numbers as processing metadata, not original clause/page references, in both progress messages and model prompts. Keep original tender references available for human review.
+**How to apply:** Preserve uploads, evidence and the saved human brief; exclude archived source text and internal leases from public responses. Changed sources require a fresh explicit extraction. UI progress must describe the complete-tender attempt, never imply that internal counters are original numbered tender sections.

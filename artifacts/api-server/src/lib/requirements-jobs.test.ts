@@ -105,6 +105,31 @@ test("transient failures are bounded and preserve successful checkpoints", async
   assert.equal(job.sections!.length, 1);
 });
 
+test("a full-tender attempt uses one complete input and never splits a failed response", async () => {
+  const text = `FIRST ASSESSED CLAUSE\n${"General background is not a checklist item.\n".repeat(1000)}LAST ASSESSED CLAUSE`;
+  const job: Job = { id: randomUUID(), strategy: "full_tender", cardScope: "evaluated_only", status: "processing",
+    completedSections: 0, totalSections: 1, sourceFiles: [], error: null,
+    sections: [{ label: "complete.pdf", text, depth: 0, attempts: 0 }], results: [] };
+  let calls = 0;
+  const failed = await advanceSection(job, async (input, partial) => {
+    calls++; assert.equal(input, text); assert.equal(partial, false);
+    throw new InvalidSectionOutputError("incomplete");
+  });
+  assert.equal(calls, 1);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.totalSections, 1);
+  assert.equal(failed.completedSections, 0);
+  assert.equal(failed.sections![0]!.text, text);
+  assert.equal(failed.sections!.length, 1);
+  assert.match(failed.error!, /No partial checklist/);
+  const tooLarge = await advanceSection(job, async () => {
+    throw Object.assign(new Error("Maximum input token limit"), { code: "context_length_exceeded" });
+  });
+  assert.equal(tooLarge.status, "failed");
+  assert.match(tooLarge.error!, /input limit/);
+  assert.equal(tooLarge.sections![0]!.text, text);
+});
+
 test("durable extraction resumes after failure and publishes the whole brief and cards atomically", async () => {
   const ownerId = `test-${randomUUID()}`;
   await db.insert(usersTable).values({ id: ownerId });
@@ -119,19 +144,26 @@ test("durable extraction resumes after failure and publishes the whole brief and
   assert.equal(queued.requirementsExtraction!.job!.id, duplicate.requirementsExtraction!.job!.id);
   assert.ok(await requirementsProcessing(ownerId));
   assert.equal((await tenderView(queued)).requirementsExtraction!.job!.sections, undefined);
+  assert.equal(queued.requirementsExtraction!.job!.strategy, "full_tender");
+  assert.equal(queued.requirementsExtraction!.job!.totalSections, 1);
+  assert.ok(queued.requirementsExtraction!.job!.sections![0]!.text.includes(sourceText));
   assert.equal(queued.requirements, "Saved human brief");
   const read = async () => (await db.select().from(tendersTable).where(eq(tendersTable.id, tender.id)))[0];
-  await processRequirements(tender.id, ownerId, async () => result("first"));
-  assert.equal((await read()).requirementsExtraction!.job!.completedSections, 2);
+  await processRequirements(tender.id, ownerId, async () => { throw new Error("Unavailable"); });
+  assert.equal((await read()).requirementsExtraction!.job!.completedSections, 0);
   assert.equal((await db.select().from(requirementItemsTable)).length, 0);
-  for (let i = 0; i < 3; i++) await processRequirements(tender.id, ownerId, async () => { throw new Error("Unavailable"); });
   assert.equal((await read()).requirementsExtraction!.job!.status, "failed");
   const resumed = await queueRequirements(tender.id, ownerId);
-  assert.equal(resumed.requirementsExtraction!.job!.completedSections, 2);
-  let counter = 1;
+  assert.equal(resumed.requirementsExtraction!.job!.completedSections, 0);
+  assert.equal(resumed.requirementsExtraction!.job!.id, queued.requirementsExtraction!.job!.id);
+  let counter = 0;
   while ((await read()).requirementsExtraction!.job!.status === "processing") {
-    await processRequirements(tender.id, ownerId, async () => result(`remaining-${counter++}`));
+    await processRequirements(tender.id, ownerId, async (text, partial) => {
+      counter++; assert.ok(text.includes(sourceText)); assert.equal(partial, false);
+      return result("first");
+    });
   }
+  assert.equal(counter, 1);
   const complete = await read();
   assert.equal(complete.requirementsExtraction!.job!.status, "completed");
   assert.equal(complete.requirementsExtraction!.job!.completedSections, complete.requirementsExtraction!.job!.totalSections);
@@ -139,7 +171,7 @@ test("durable extraction resumes after failure and publishes the whole brief and
   assert.equal(rows.length, counter);
   assert.ok(rows.every(r => r.extractionId === complete.requirementsExtraction!.id && r.reviewStatus === "pending"));
   assert.equal(complete.requirements, "Saved human brief");
-  assert.match(complete.requirementsExtraction!.requirements, /remaining-/);
+  assert.match(complete.requirementsExtraction!.requirements, /first/);
   assert.equal(await requirementsProcessing(ownerId), false);
   await assert.rejects(processRequirements(tender.id, "other-owner", async () => result("unauthorized")), /not found/);
   // Re-extraction reuses identical rows without discarding their human evidence.
@@ -156,10 +188,10 @@ test("durable extraction resumes after failure and publishes the whole brief and
   assert.equal(retained.extractionId, (await read()).requirementsExtraction!.id);
 });
 
-test("concurrent tabs cannot process a section twice; obsolete workers cannot overwrite recovery", async () => {
+test("concurrent tabs cannot process the full tender twice; obsolete workers cannot overwrite recovery", async () => {
   const ownerId = `lease-${randomUUID()}`;
   await db.insert(usersTable).values({ id: ownerId });
-  const job: Job = { id: randomUUID(), cardScope: "evaluated_only", status: "processing", completedSections: 0, totalSections: 1, sourceFiles: [],
+  const job: Job = { id: randomUUID(), strategy: "full_tender", cardScope: "evaluated_only", status: "processing", completedSections: 0, totalSections: 1, sourceFiles: [],
     error: null, sections: [{ label: "final", text: "Final switch", depth: 0, attempts: 0 }], results: [] };
   const [tender] = await db.insert(tendersTable).values({ ownerId, title: "Lease test", agency: "Test",
     requirementsExtraction: { id: randomUUID(), requirements: "", summary: "", sourceFiles: [], warnings: [], extractedAt: new Date().toISOString(), reviewedAt: null, job } }).returning();
@@ -178,4 +210,46 @@ test("concurrent tabs cannot process a section twice; obsolete workers cannot ov
   const [saved] = await db.select().from(tendersTable).where(eq(tendersTable.id, tender.id));
   assert.match(saved.requirementsExtraction!.requirements, /replacement/);
   assert.doesNotMatch(saved.requirementsExtraction!.requirements, /obsolete/);
+});
+
+test("legacy chunk jobs upgrade from complete original sources without exposing or losing saved work", async () => {
+  const ownerId = `test-${randomUUID()}`;
+  await db.insert(usersTable).values({ id: ownerId });
+  const [tender] = await db.insert(tendersTable).values({ ownerId, title: "Full tender migration", agency: "Test", requirements: "Human-reviewed brief" }).returning();
+  const texts = ["Supply first. " + "Background context. ".repeat(800) + "FIRST FINAL CLAUSE",
+    "Supply second. " + "Annexure context. ".repeat(700) + "SECOND FINAL CLAUSE"];
+  for (let i = 0; i < texts.length; i++) {
+    const path = `/objects/test-${randomUUID()}`;
+    await db.insert(uploadsTable).values({ ownerId, objectPath: path, name: `source-${i}.pdf`, contentType: "application/pdf", size: 100,
+      extraction: { ...queuedExtraction("eng"), status: "not_needed", sourceText: texts[i], job: undefined } });
+    await db.insert(evidenceTable).values({ ownerId, tenderId: tender.id, objectPath: path, name: `source-${i}.pdf`,
+      category: "tender_rfp", contentType: "application/pdf", size: 100, notes: `UNIQUE_HUMAN_NOTE_${i}` });
+  }
+  const queued = await queueRequirements(tender.id, ownerId);
+  const legacy: Job = { ...queued.requirementsExtraction!.job!, strategy: undefined, completedSections: 1, totalSections: 96,
+    sections: [{ label: "old chunk", text: "PRIVATE OLD PARTIAL TEXT", depth: 0, attempts: 0 }],
+    results: [{ label: "saved chunk", result: result("saved previous clause") }] };
+  await db.update(tendersTable).set({ requirementsExtraction: { ...queued.requirementsExtraction!, job: legacy } }).where(eq(tendersTable.id, tender.id));
+  let calls = 0;
+  await processRequirements(tender.id, ownerId, async (input, partial) => {
+    calls++; assert.equal(partial, false);
+    for (let i = 0; i < texts.length; i++) {
+      assert.ok(input.includes(texts[i]!));
+      assert.equal(input.split(`UNIQUE_HUMAN_NOTE_${i}`).length - 1, 1);
+    }
+    assert.doesNotMatch(input, /SOURCE CHUNK|PRIVATE OLD PARTIAL TEXT/);
+    const [inProgress] = await db.select().from(tendersTable).where(eq(tendersTable.id, tender.id));
+    assert.equal(inProgress.requirements, "Human-reviewed brief");
+    assert.equal(inProgress.requirementsExtraction!.job!.legacyCheckpoint!.results![0]!.result.items[0]!.title, "saved previous clause");
+    const publicJob = (await tenderView(inProgress)).requirementsExtraction!.job!;
+    assert.equal("legacyCheckpoint" in publicJob, false);
+    assert.equal("strategy" in publicJob, false);
+    return { ...result("first"), items: [...result("first").items, ...result("second").items] };
+  });
+  assert.equal(calls, 1);
+  const [complete] = await db.select().from(tendersTable).where(eq(tendersTable.id, tender.id));
+  assert.equal(complete.requirements, "Human-reviewed brief");
+  assert.equal(complete.requirementsExtraction!.job!.status, "completed");
+  assert.equal(complete.requirementsExtraction!.job!.legacyCheckpoint, undefined);
+  assert.equal((await db.select().from(requirementItemsTable).where(eq(requirementItemsTable.tenderId, tender.id))).length, 2);
 });
