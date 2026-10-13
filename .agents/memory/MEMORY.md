@@ -2,7 +2,7 @@
 - [Proposal export boundaries](proposal-export-policy.md) — readiness is not certification; separate bid prices from technical checklists and required financial eligibility figures.
 - [Automatic tender requirements](requirements-extraction-scope.md) — assessed-only checklist cards, per-requirement evidence and human vendor choices; Pakistan suppliers and PKR pricing.
 - [AI requirement validation](ai-requirement-validation.md) — invalid optional purchase quantities must become unknown, not discard every extracted clause.
-- [Large tender extraction](requirements-execution.md) — one AI section per request with durable checkpoints; recursive recovery must not exceed the request lifetime.
+- [Large tender extraction](requirements-execution.md) — one bounded AI call per request with durable checkpoints; recovery splits must advance and preserve source coverage.
 - [OpenAPI request bodies](openapi-request-bodies.md) — named body schemas avoid collisions between generated TypeScript body types and Zod exports.
 - [OCR privacy boundary](ocr-privacy.md) — local recognition avoids image-provider consent; draft consent must never imply permission to send original images remotely.
 - [Post-merge stale listeners](post-merge-listeners.md) — older app processes can survive reconciliation; inspect actual port owners before retrying failed workflows.

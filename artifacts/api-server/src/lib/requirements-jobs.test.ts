@@ -122,12 +122,12 @@ test("durable extraction resumes after failure and publishes the whole brief and
   assert.equal(queued.requirements, "Saved human brief");
   const read = async () => (await db.select().from(tendersTable).where(eq(tendersTable.id, tender.id)))[0];
   await processRequirements(tender.id, ownerId, async () => result("first"));
-  assert.equal((await read()).requirementsExtraction!.job!.completedSections, 1);
+  assert.equal((await read()).requirementsExtraction!.job!.completedSections, 2);
   assert.equal((await db.select().from(requirementItemsTable)).length, 0);
   for (let i = 0; i < 3; i++) await processRequirements(tender.id, ownerId, async () => { throw new Error("Unavailable"); });
   assert.equal((await read()).requirementsExtraction!.job!.status, "failed");
   const resumed = await queueRequirements(tender.id, ownerId);
-  assert.equal(resumed.requirementsExtraction!.job!.completedSections, 1);
+  assert.equal(resumed.requirementsExtraction!.job!.completedSections, 2);
   let counter = 1;
   while ((await read()).requirementsExtraction!.job!.status === "processing") {
     await processRequirements(tender.id, ownerId, async () => result(`remaining-${counter++}`));
