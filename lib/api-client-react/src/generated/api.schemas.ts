@@ -570,6 +570,48 @@ export interface RequirementSelectionInput {
   confirmed: true;
 }
 
+export interface CompanyBrandingInput {
+  /** @maxLength 200 */
+  companyName: string;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  logoObjectPath: string | null;
+}
+
+/**
+ * @nullable
+ */
+export type CompanyBrandingLogoContentType = typeof CompanyBrandingLogoContentType[keyof typeof CompanyBrandingLogoContentType] | null;
+
+
+export const CompanyBrandingLogoContentType = {
+  'image/png': 'image/png',
+  'image/jpeg': 'image/jpeg',
+} as const;
+
+export type CompanyBranding = CompanyBrandingInput & ({
+  /** @nullable */
+  logoContentType: CompanyBrandingLogoContentType;
+  /** @nullable */
+  updatedAt: string | null;
+});
+
+export interface ProposalReadinessBlocker {
+  /** @nullable */
+  requirementId: string | null;
+  title: string;
+  reasons: string[];
+}
+
+export interface ProposalReadiness {
+  ready: boolean;
+  requirementCount: number;
+  readyCount: number;
+  blockers: ProposalReadinessBlocker[];
+}
+
 export type HistoricalPricePriceBasis = typeof HistoricalPricePriceBasis[keyof typeof HistoricalPricePriceBasis];
 
 

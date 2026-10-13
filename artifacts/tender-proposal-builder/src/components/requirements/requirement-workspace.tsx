@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { ListChecks, LoaderCircle, Plus, Sparkles } from 'lucide-react';
 import { useImportRequirementItems, useListRequirementItems } from '@workspace/api-client-react';
 import type { Evidence, Tender } from '@workspace/api-client-react';
+import { exportRequirementsXlsx } from '@/lib/requirements-export';
+import { Download } from 'lucide-react';
 import { Button, Dialog, EmptyState, QueryError, errorText } from '@/components/ui-kit';
 import { isEvidenced, isStale, reqCategories, useRefreshRequirements } from './shared';
 import { RequirementCard } from './requirement-card';
@@ -10,7 +12,7 @@ import { RequirementFormDialog } from './requirement-form-dialog';
 export function RequirementWorkspace({ tender, files }: { tender: Tender; files: Evidence[] }) {
   const query = useListRequirementItems(tender.id); const imp = useImportRequirementItems(); const refresh = useRefreshRequirements(tender.id);
   const [filter, setFilter] = useState<string>('all'); const [adding, setAdding] = useState(false); const [importing, setImporting] = useState(false); const [aiOk, setAiOk] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(1); const [xl, setXl] = useState<'' | 'filtered' | 'all'>(''); const [xlErr, setXlErr] = useState('');
   const rows = query.data ?? [];
   const approved = rows.filter(r => r.reviewStatus === 'approved' && !isStale(r, tender)).length;
   const stale = rows.filter(r => isStale(r, tender)).length;
@@ -19,6 +21,7 @@ export function RequirementWorkspace({ tender, files }: { tender: Tender; files:
   const pageCount = Math.max(1, Math.ceil(shown.length / 50));
   const currentPage = Math.min(page, pageCount);
   const pageRows = shown.slice((currentPage - 1) * 50, currentPage * 50);
+  const doXlsx = async (mode: 'filtered' | 'all') => { setXl(mode); setXlErr(''); try { await exportRequirementsXlsx({ mode, filter, rows: shown, allRows: rows, files, tenderTitle: tender.title }); } catch (e) { setXlErr(errorText(e)); } finally { setXl(''); } };
   const pct = rows.length ? Math.round(approved / rows.length * 100) : 0;
   return <section className="rounded-2xl border border-primary/20 bg-card p-5 md:p-6" data-testid="panel-requirement-workspace">
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -36,6 +39,7 @@ export function RequirementWorkspace({ tender, files }: { tender: Tender; files:
         </div>
         {stale > 0 && <p className="mt-3 rounded-lg bg-amber-900/5 p-3 text-xs text-amber-950">{stale} requirement{stale === 1 ? '' : 's'} came from an earlier extraction. Re-review them against the current documents, or import new rows. Your existing work is preserved.</p>}
         {imp.isSuccess && <p role="status" className="mt-3 rounded-lg bg-emerald-900/5 p-3 text-xs text-emerald-900">Import finished. New rows were added; existing human work was not replaced.</p>}
+        <div className="mt-4 rounded-xl border border-border bg-secondary/30 p-3" data-testid="panel-requirements-excel"><div className="flex flex-wrap items-center gap-2"><Button variant="secondary" disabled={!!xl || shown.length === 0} onClick={() => void doXlsx('filtered')} data-testid="button-export-filtered-xlsx">{xl === 'filtered' ? <LoaderCircle size={14} className="animate-spin"/> : <Download size={14}/>}Export filtered ({shown.length}) to Excel</Button><Button variant="secondary" disabled={!!xl || rows.length === 0} onClick={() => void doXlsx('all')} data-testid="button-export-all-xlsx">{xl === 'all' ? <LoaderCircle size={14} className="animate-spin"/> : <Download size={14}/>}Export all groups with pricing</Button></div><p className="mt-2 text-[11px] text-muted-foreground">Filtered export includes every matching row, not just this page. Technical and compliance sheets carry no prices. The all-groups workbook contains commercial pricing on a separate Pricing sheet and must not be attached to the technical envelope.</p>{xlErr && <p role="alert" className="mt-2 text-xs text-destructive">{xlErr}</p>}</div>
         <div className="mt-4 flex flex-wrap gap-1.5" role="tablist" aria-label="Filter by category">{[['all', 'All'], ...reqCategories].map(([id, label]) => { const n = id === 'all' ? rows.length : rows.filter(r => r.category === id).length; return <button key={id} role="tab" aria-selected={filter === id} onClick={() => { setFilter(id); setPage(1); }} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${filter === id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`} data-testid={`filter-${id}`}>{label} {n}</button>; })}</div>
         <div className="mt-4 space-y-3">{rows.length === 0 ? <EmptyState title="No assessed requirements to show" body="Extract from tender identifies bid-evaluation and compliance-response items. General statements do not become cards. Check the original compliance tables if an assessed requirement is missing." icon={<ListChecks size={20}/>}/> : shown.length === 0 ? <p className="py-6 text-center text-xs text-muted-foreground">No requirements in this category.</p> : pageRows.map(r => <RequirementCard key={r.id} row={r} tender={tender} files={files}/>)}</div>
         {pageCount > 1 && <nav className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label="Requirement pages">

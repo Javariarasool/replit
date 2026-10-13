@@ -8,6 +8,47 @@
 import * as zod from 'zod';
 
 
+export const getCompanyBrandingResponseOneCompanyNameMax = 200;
+
+export const getCompanyBrandingResponseOneLogoObjectPathMax = 1000;
+
+
+
+export const GetCompanyBrandingResponse = zod.object({
+  "companyName": zod.string().max(getCompanyBrandingResponseOneCompanyNameMax),
+  "logoObjectPath": zod.string().max(getCompanyBrandingResponseOneLogoObjectPathMax).nullable()
+}).and(zod.object({
+  "logoContentType": zod.union([zod.literal('image/png'),zod.literal('image/jpeg'),zod.literal(null)]).nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+}))
+
+
+export const updateCompanyBrandingBodyCompanyNameMax = 200;
+
+export const updateCompanyBrandingBodyLogoObjectPathMax = 1000;
+
+
+
+export const UpdateCompanyBrandingBody = zod.object({
+  "companyName": zod.string().max(updateCompanyBrandingBodyCompanyNameMax),
+  "logoObjectPath": zod.string().max(updateCompanyBrandingBodyLogoObjectPathMax).nullable()
+})
+
+export const updateCompanyBrandingResponseOneCompanyNameMax = 200;
+
+export const updateCompanyBrandingResponseOneLogoObjectPathMax = 1000;
+
+
+
+export const UpdateCompanyBrandingResponse = zod.object({
+  "companyName": zod.string().max(updateCompanyBrandingResponseOneCompanyNameMax),
+  "logoObjectPath": zod.string().max(updateCompanyBrandingResponseOneLogoObjectPathMax).nullable()
+}).and(zod.object({
+  "logoContentType": zod.union([zod.literal('image/png'),zod.literal('image/jpeg'),zod.literal(null)]).nullable(),
+  "updatedAt": zod.coerce.date().nullable()
+}))
+
+
 export const listCompanyEvidenceResponseOneOneTitleMax = 200;
 
 export const listCompanyEvidenceResponseOneOneNotesMax = 10000;
@@ -1800,6 +1841,22 @@ export const ListProposalsResponseItem = zod.object({
   "updatedAt": zod.coerce.date()
 })
 export const ListProposalsResponse = zod.array(ListProposalsResponseItem)
+
+
+export const GetProposalReadinessParams = zod.object({
+  "tenderId": zod.coerce.string().uuid()
+})
+
+export const GetProposalReadinessResponse = zod.object({
+  "ready": zod.boolean(),
+  "requirementCount": zod.number().int(),
+  "readyCount": zod.number().int(),
+  "blockers": zod.array(zod.object({
+  "requirementId": zod.string().uuid().nullable(),
+  "title": zod.string(),
+  "reasons": zod.array(zod.string())
+}))
+})
 
 
 /**

@@ -21,6 +21,31 @@ tags:
   - name: storage
     description: Secure document upload endpoints.
 paths:
+  /company-branding:
+    get:
+      operationId: getCompanyBranding
+      tags: [proposals]
+      responses:
+        "200":
+          description: Private company branding used on proposal covers and exports
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CompanyBranding" }
+    put:
+      operationId: updateCompanyBranding
+      tags: [proposals]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompanyBrandingInput" }
+      responses:
+        "200":
+          description: Updated company name and owned PNG/JPEG logo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CompanyBranding" }
+        "400": { $ref: "#/components/responses/Error" }
   /company-evidence:
     get:
       operationId: listCompanyEvidence
@@ -595,6 +620,19 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Proposal"
+  /tenders/{tenderId}/proposal-readiness:
+    get:
+      operationId: getProposalReadiness
+      tags: [proposals]
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      responses:
+        "200":
+          description: Current checklist readiness, not a certification of bid compliance
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProposalReadiness" }
+        "404": { $ref: "#/components/responses/Error" }
   /tenders/{tenderId}/proposals/generate:
     post:
       operationId: generateProposalPair
@@ -1148,6 +1186,37 @@ components:
       properties:
         optionId: { type: [string, "null"], format: uuid }
         confirmed: { type: boolean, enum: [true] }
+    CompanyBrandingInput:
+      type: object
+      required: [companyName, logoObjectPath]
+      properties:
+        companyName: { type: string, maxLength: 200 }
+        logoObjectPath: { type: [string, "null"], maxLength: 1000 }
+    CompanyBranding:
+      allOf:
+        - $ref: "#/components/schemas/CompanyBrandingInput"
+        - type: object
+          required: [logoContentType, updatedAt]
+          properties:
+            logoContentType: { type: [string, "null"], enum: [image/png, image/jpeg, null] }
+            updatedAt: { type: [string, "null"], format: date-time }
+    ProposalReadiness:
+      type: object
+      required: [ready, requirementCount, readyCount, blockers]
+      properties:
+        ready: { type: boolean }
+        requirementCount: { type: integer }
+        readyCount: { type: integer }
+        blockers:
+          type: array
+          items: { $ref: "#/components/schemas/ProposalReadinessBlocker" }
+    ProposalReadinessBlocker:
+      type: object
+      required: [requirementId, title, reasons]
+      properties:
+        requirementId: { type: [string, "null"], format: uuid }
+        title: { type: string }
+        reasons: { type: array, items: { type: string } }
     HistoricalPrice:
       type: object
       required: [id, item, supplier, amount, currency, priceBasis, quantity, unit, taxStatus, sourceType, sourceTitle, sourceDate, dateLabel, sourceQuote, sourceTenderId, libraryEntryId, objectPath, matchType, matchNotes]

@@ -23,3 +23,4 @@ export * from "./uploads";
 export * from "./proposal-library";
 export * from "./requirement-items";
 export * from "./company-evidence";
+export * from "./company-branding";

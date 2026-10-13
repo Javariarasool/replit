@@ -1,4 +1,5 @@
 - [Proposal library scope](proposal-library-scope.md) — private tender–proposal pairs; past prices are comparison references, not automatic current quotes.
+- [Proposal export boundaries](proposal-export-policy.md) — readiness is not certification; separate bid prices from technical checklists and required financial eligibility figures.
 - [Automatic tender requirements](requirements-extraction-scope.md) — assessed-only checklist cards, per-requirement evidence and human vendor choices; Pakistan suppliers and PKR pricing.
 - [AI requirement validation](ai-requirement-validation.md) — invalid optional purchase quantities must become unknown, not discard every extracted clause.
 - [Large tender extraction](requirements-execution.md) — one AI section per request with durable checkpoints; recursive recovery must not exceed the request lifetime.

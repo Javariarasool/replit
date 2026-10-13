@@ -22,6 +22,8 @@ import type {
 import type {
   AuthUserEnvelope,
   BeginBrowserLoginParams,
+  CompanyBranding,
+  CompanyBrandingInput,
   CompanyEvidence,
   CompanyEvidenceInput,
   CompanyEvidenceLink,
@@ -50,6 +52,7 @@ import type {
   PriceHistory,
   Proposal,
   ProposalPair,
+  ProposalReadiness,
   ProposalUpdate,
   RequirementDraft,
   RequirementItem,
@@ -95,6 +98,159 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetCompanyBrandingUrl = () => {
+
+
+
+
+  return `/api/company-branding`
+}
+
+export const getCompanyBranding = async ( options?: Parameters<typeof customFetch>[1]): Promise<CompanyBranding> => {
+
+  return customFetch<CompanyBranding>(getGetCompanyBrandingUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCompanyBrandingQueryKey = () => {
+    return [
+    `/api/company-branding`
+    ] as const;
+    }
+
+
+export const getGetCompanyBrandingQueryOptions = <TData = Awaited<ReturnType<typeof getCompanyBranding>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCompanyBranding>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCompanyBrandingQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCompanyBranding>>> = ({ signal }) => getCompanyBranding({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCompanyBranding>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCompanyBrandingQueryResult = NonNullable<Awaited<ReturnType<typeof getCompanyBranding>>>
+export type GetCompanyBrandingQueryError = ErrorType<unknown>
+
+
+
+export function useGetCompanyBranding<TData = Awaited<ReturnType<typeof getCompanyBranding>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCompanyBranding>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCompanyBrandingQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateCompanyBrandingUrl = () => {
+
+
+
+
+  return `/api/company-branding`
+}
+
+export const updateCompanyBranding = async (companyBrandingInput: CompanyBrandingInput, options?: Parameters<typeof customFetch>[1]): Promise<CompanyBranding> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CompanyBranding>(getUpdateCompanyBrandingUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(companyBrandingInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateCompanyBrandingMutationKey = () => ['updateCompanyBranding'] as const;
+
+export const getUpdateCompanyBrandingMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompanyBranding>>, TError,UpdateCompanyBrandingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCompanyBranding>>, TError,UpdateCompanyBrandingMutationVariables, TContext> => {
+
+const mutationKey = getUpdateCompanyBrandingMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCompanyBranding>>, UpdateCompanyBrandingMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateCompanyBranding(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCompanyBrandingMutationResult = NonNullable<Awaited<ReturnType<typeof updateCompanyBranding>>>
+    export type UpdateCompanyBrandingMutationBody = BodyType<CompanyBrandingInput>
+    export type UpdateCompanyBrandingMutationError = ErrorType<ErrorResponse>
+    export type UpdateCompanyBrandingMutationVariables = {data: BodyType<CompanyBrandingInput>}
+
+    export const useUpdateCompanyBranding = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompanyBranding>>, TError,UpdateCompanyBrandingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCompanyBranding>>,
+        TError,
+        UpdateCompanyBrandingMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateCompanyBrandingMutationOptions(options));
+    }
 
 export const getListCompanyEvidenceUrl = () => {
 
@@ -2975,6 +3131,77 @@ export function useListProposals<TData = Awaited<ReturnType<typeof listProposals
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListProposalsQueryOptions(tenderId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetProposalReadinessUrl = (tenderId: string,) => {
+
+
+
+
+  return `/api/tenders/${tenderId}/proposal-readiness`
+}
+
+export const getProposalReadiness = async (tenderId: string, options?: Parameters<typeof customFetch>[1]): Promise<ProposalReadiness> => {
+
+  return customFetch<ProposalReadiness>(getGetProposalReadinessUrl(tenderId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProposalReadinessQueryKey = (tenderId: string,) => {
+    return [
+    `/api/tenders/${tenderId}/proposal-readiness`
+    ] as const;
+    }
+
+
+export const getGetProposalReadinessQueryOptions = <TData = Awaited<ReturnType<typeof getProposalReadiness>>, TError = ErrorType<ErrorResponse>>(tenderId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProposalReadiness>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProposalReadinessQueryKey(tenderId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProposalReadiness>>> = ({ signal }) => getProposalReadiness(tenderId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: tenderId !== null && tenderId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProposalReadiness>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProposalReadinessQueryResult = NonNullable<Awaited<ReturnType<typeof getProposalReadiness>>>
+export type GetProposalReadinessQueryError = ErrorType<ErrorResponse>
+
+
+
+export function useGetProposalReadiness<TData = Awaited<ReturnType<typeof getProposalReadiness>>, TError = ErrorType<ErrorResponse>>(
+ tenderId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProposalReadiness>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProposalReadinessQueryOptions(tenderId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

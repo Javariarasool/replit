@@ -1,3 +1,4 @@
+import { companyBrandingTable } from "@workspace/db";
 import { and, eq, or } from "drizzle-orm";
 import { db, evidenceTable, companyEvidenceTable, proposalLibraryTable, uploadsTable } from "@workspace/db";
 import { ObjectNotFoundError, ObjectStorageService } from "./objectStorage";
@@ -15,6 +16,8 @@ export async function removeUnusedUpload(
   const evidence = await db.select({ id: evidenceTable.id, tenderId: evidenceTable.tenderId })
     .from(evidenceTable).where(eq(evidenceTable.objectPath, objectPath));
   if (evidence.some(e => e.id !== excluded.evidenceId && e.tenderId !== excluded.tenderId)) return;
+  const branding = await db.select({ ownerId: companyBrandingTable.ownerId }).from(companyBrandingTable).where(eq(companyBrandingTable.logoObjectPath, objectPath));
+  if (branding.length) return;
   const company = await db.select({ id: companyEvidenceTable.id }).from(companyEvidenceTable).where(eq(companyEvidenceTable.objectPath, objectPath));
   if (company.some(e => e.id !== excluded.companyEvidenceId)) return;
   const archives = await db.select({ id: proposalLibraryTable.id }).from(proposalLibraryTable).where(or(
