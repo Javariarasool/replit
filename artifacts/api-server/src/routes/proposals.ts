@@ -11,6 +11,7 @@ import { requireAuth, ownedTender } from "../lib/tender-data";
 import { evidenceContext } from "../lib/documents";
 import { sameTenderSources } from "../lib/tender-requirements";
 import { requirementsProcessing } from "../lib/requirements-jobs";
+import { EVALUATED_CARD_SCOPE, visibleRequirements } from "../lib/requirement-scope";
 import { requirementProposalContext } from "../lib/requirement-proposal-context";
 import { ensureExtraction, draftingText } from "../lib/document-extractions";
 import { resolveTenderEvidence } from "../lib/company-evidence";
@@ -41,7 +42,10 @@ router.post("/tenders/:tenderId/proposals/generate", async (req, res): Promise<v
   const resolved = await resolveTenderEvidence(files, tender);
   // Invalid or unreviewed reusable evidence cannot establish current bidder claims.
   const usable = resolved.filter(f => !(f.companyEvidenceId || f.companySnapshot) || (f.applicability === "applicable" && !f.warnings.some(w => !w.startsWith("Expiry date not recorded"))));
-  const requirementRows = await db.select().from(requirementItemsTable).where(eq(requirementItemsTable.tenderId, tender.id));
+  if (tender.requirementsExtraction && tender.requirementsExtraction.cardScope !== EVALUATED_CARD_SCOPE) {
+    res.status(409).json({ error: "Extract the tender again to build the bid-evaluation/compliance checklist, then review it before generating. Previous cards and evidence are preserved." }); return;
+  }
+  const requirementRows = visibleRequirements(await db.select().from(requirementItemsTable).where(eq(requirementItemsTable.tenderId, tender.id)), tender.requirementsExtraction);
   const blockedLinked = resolved.filter(f => !usable.includes(f) && requirementRows.some(r => r.evidenceIds.includes(f.id)));
   if (blockedLinked.length) {
     res.status(409).json({ error: `Review or replace invalid company evidence linked to requirements: ${blockedLinked.map(f => `${f.name}: ${f.warnings.join("; ")}`).join("\n")}` }); return;

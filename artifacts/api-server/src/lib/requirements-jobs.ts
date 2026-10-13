@@ -3,6 +3,7 @@ import { and, eq, ne, inArray, sql } from "drizzle-orm";
 import { db, evidenceTable, requirementItemsTable, tendersTable, type RequirementsExtraction } from "@workspace/db";
 import { assembleTenderRequirements, extractSection, InvalidSectionOutputError, prepareTenderSections, requirementsInFlight, splitTenderText, type ExtractedSection } from "./tender-requirements";
 import { appendRequirementDrafts, requirementKey } from "./requirement-items";
+import { EVALUATED_CARD_SCOPE } from "./requirement-scope";
 
 type Job = NonNullable<RequirementsExtraction["job"]>;
 const sourcesMatch = (a: { id: string }[], b: { id: string }[]) =>
@@ -26,7 +27,7 @@ export async function queueRequirements(tenderId: string, ownerId: string) {
     const files = await tx.select().from(evidenceTable).where(and(eq(evidenceTable.tenderId, tenderId), eq(evidenceTable.category, "tender_rfp")));
     const sourceFiles = files.map(f => ({ id: f.id, name: f.name }));
     const previous = tender.requirementsExtraction;
-    if (previous?.job && sourcesMatch(sourceFiles, previous.job.sourceFiles)) {
+    if (previous?.job?.cardScope === EVALUATED_CARD_SCOPE && sourcesMatch(sourceFiles, previous.job.sourceFiles)) {
       if (previous.job.status === "processing") return tender;
       if (previous.job.status === "failed" && (previous.job.sections?.length || previous.job.results?.length)) {
         const job: Job = { ...previous.job, status: "processing", error: null, token: null, leaseUntil: null,
@@ -41,7 +42,7 @@ export async function queueRequirements(tenderId: string, ownerId: string) {
     if (active.length || requirementsInFlight.has(ownerId)) throw new Error("Another tender extraction is already running. Open that tender to finish it.");
     const documents = await prepareTenderSections(files);
     const job: Job = { id: randomUUID(), status: "processing", completedSections: 0, totalSections: documents.length,
-      error: null, sourceFiles, sections: documents.map(d => ({ ...d, depth: 0, attempts: 0 })), results: [] };
+      error: null, sourceFiles, cardScope: EVALUATED_CARD_SCOPE, sections: documents.map(d => ({ ...d, depth: 0, attempts: 0 })), results: [] };
     const extraction: RequirementsExtraction = { ...(previous ?? {
       id: randomUUID(), requirements: "", summary: "", warnings: [], sourceFiles: [],
       extractedAt: new Date().toISOString(), reviewedAt: null,
@@ -96,6 +97,12 @@ export async function processRequirements(tenderId: string, ownerId: string, ext
     const extraction = tender.requirementsExtraction;
     const job = extraction?.job;
     if (!extraction || !job) throw new Error("Start requirement extraction with explicit AI consent first.");
+    if (job.cardScope !== EVALUATED_CARD_SCOPE) {
+      await tx.update(tendersTable).set({ requirementsExtraction: { ...extraction, job: {
+        ...job, status: "failed", error: "Extraction rules changed to assessed requirements only. Choose Extract again to rebuild the checklist.", sections: undefined, results: undefined, token: null, leaseUntil: null,
+      } } }).where(eq(tendersTable.id, tenderId));
+      return null;
+    }
     if (job.status !== "processing" || (job.token && job.leaseUntil && Date.parse(job.leaseUntil) > Date.now())) return null;
     const busy = await tx.select({ id: tendersTable.id }).from(tendersTable).where(sql`
       requirements_extraction->'job'->>'status' = 'processing'

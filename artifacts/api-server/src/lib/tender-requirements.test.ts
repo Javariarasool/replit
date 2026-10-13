@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractSectionWithRecovery, InvalidSectionOutputError, parseSectionOutput } from "./tender-requirements";
+import { assembleTenderRequirements, extractSectionWithRecovery, InvalidSectionOutputError, parseSectionOutput } from "./tender-requirements";
+import { visibleRequirements } from "./requirement-scope";
+import type { RequirementItem, RequirementsExtraction } from "@workspace/db";
 import { appendRequirementDrafts } from "./requirement-items";
 
 const result = (quote: string) => ({
@@ -16,7 +18,56 @@ const result = (quote: string) => ({
     quantity: null as number | null,
     unit: null,
     requiresVendor: false,
+    assessmentBasis: "compliance_response" as const,
+    assessmentQuote: quote.slice(0, 100),
   }],
+});
+
+test("only assessed items become cards; general statements stay in the brief", () => {
+  const assessed = result("Bidder must mark Comply/Not comply for 12 switches.");
+  const context = { ...assessed.items[0]!, title: "Agency background",
+    sourceQuote: "The agency supports digital transformation.", assessmentBasis: "context" as const, assessmentQuote: "" };
+  const parsed = parseSectionOutput({ ...assessed, requirements: "Full tender context and checklist.", items: [...assessed.items, context] });
+  assert.equal(parsed.items.length, 1);
+  assert.equal(parsed.items[0]!.title, "Clause");
+  assert.equal(parsed.requirements, "Full tender context and checklist.");
+  assert.equal("assessmentBasis" in parsed.items[0]!, false);
+});
+
+test("eligibility, scored criteria and mandatory bid submissions remain assessed requirements", () => {
+  const base = result("Tax registration proof is mandatory. Experience scores 20 points. Signed compliance form is required.");
+  const items = ["eligibility", "scored", "mandatory_submission"].map(assessmentBasis => ({ ...base.items[0]!, assessmentBasis }));
+  assert.equal(parseSectionOutput({ ...base, items }, base.requirements).items.length, 3);
+});
+
+test("missing or invented assessment evidence is rejected instead of creating a general-statement card", () => {
+  const output = result("Required compliance response.");
+  assert.throws(() => parseSectionOutput({ ...output, items: [{ ...output.items[0], assessmentQuote: "" }] }), InvalidSectionOutputError);
+  assert.throws(() => parseSectionOutput(output, "Agency history, no evaluation requirement"), InvalidSectionOutputError);
+  const { assessmentBasis: _basis, assessmentQuote: _quote, ...legacy } = output.items[0]!;
+  assert.throws(() => parseSectionOutput({ ...output, items: [legacy] }), InvalidSectionOutputError);
+});
+
+test("context-only sections can complete with no cards without losing their brief", () => {
+  const output = result("The agency supports digital transformation.");
+  const parsed = parseSectionOutput({ ...output, items: [{ ...output.items[0], assessmentBasis: "context", assessmentQuote: "" }] });
+  const extraction = assembleTenderRequirements([{ id: "source", name: "context.pdf" }], [{ label: "context.pdf", result: parsed }]);
+  assert.deepEqual(extraction.items, []);
+  assert.equal(extraction.cardScope, "evaluated_only");
+  assert.equal(extraction.requirements, output.requirements);
+  assert.ok(extraction.warnings.some(w => /No bid-assessment/.test(w)));
+});
+
+test("current assessed checklist hides historical general cards without deleting their evidence or manual choices", () => {
+  const rows = [
+    { id: "assessed", sourceKey: "a", extractionId: "new" },
+    { id: "general", sourceKey: "b", extractionId: "old", evidenceIds: ["saved-evidence"] },
+    { id: "human", sourceKey: "c:human-uuid", extractionId: "old" },
+  ] as RequirementItem[];
+  const scoped = { id: "new", cardScope: "evaluated_only" } as RequirementsExtraction;
+  assert.deepEqual(visibleRequirements(rows, scoped).map(r => r.id), ["assessed", "human"]);
+  assert.deepEqual(rows[1]!.evidenceIds, ["saved-evidence"]);
+  assert.deepEqual(visibleRequirements(rows, { id: "old" } as RequirementsExtraction).map(r => r.id), ["human"]);
 });
 
 test("invalid model output retries smaller overlapping sections and keeps all source text", async () => {

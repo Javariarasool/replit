@@ -39,7 +39,7 @@ test("large source text is covered by small overlapping sections, including its 
 
 test("truncated output checkpoints smaller sections with just one provider call per step", async () => {
   const text = `SOURCE FILE: "large.pdf"\nSOURCE SECTION: 1 OF 1\n${"requirement line\n".repeat(450)}`;
-  const job: Job = { id: randomUUID(), status: "processing", completedSections: 0, totalSections: 1, sourceFiles: [],
+  const job: Job = { id: randomUUID(), cardScope: "evaluated_only", status: "processing", completedSections: 0, totalSections: 1, sourceFiles: [],
     error: null, sections: [{ label: "large.pdf section 1", text, depth: 0, attempts: 0 }], results: [] };
   let calls = 0;
   const next = await advanceSection(job, async () => { calls++; throw new InvalidSectionOutputError("incomplete"); });
@@ -116,7 +116,7 @@ test("durable extraction resumes after failure and publishes the whole brief and
 test("concurrent tabs cannot process a section twice; obsolete workers cannot overwrite recovery", async () => {
   const ownerId = `lease-${randomUUID()}`;
   await db.insert(usersTable).values({ id: ownerId });
-  const job: Job = { id: randomUUID(), status: "processing", completedSections: 0, totalSections: 1, sourceFiles: [],
+  const job: Job = { id: randomUUID(), cardScope: "evaluated_only", status: "processing", completedSections: 0, totalSections: 1, sourceFiles: [],
     error: null, sections: [{ label: "final", text: "Final switch", depth: 0, attempts: 0 }], results: [] };
   const [tender] = await db.insert(tendersTable).values({ ownerId, title: "Lease test", agency: "Test",
     requirementsExtraction: { id: randomUUID(), requirements: "", summary: "", sourceFiles: [], warnings: [], extractedAt: new Date().toISOString(), reviewedAt: null, job } }).returning();

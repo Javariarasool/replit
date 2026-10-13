@@ -71,6 +71,7 @@ export * from './requirementItemUpdateCategory';
 export * from './requirementItemUpdateReviewStatus';
 export * from './requirementSelectionInput';
 export * from './requirementsExtraction';
+export * from './requirementsExtractionCardScope';
 export * from './requirementsExtractionSourceFilesItem';
 export * from './requirementsJob';
 export * from './requirementsJobSourceFilesItem';

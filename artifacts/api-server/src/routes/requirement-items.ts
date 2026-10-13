@@ -12,6 +12,7 @@ import { ownedTender, requireAuth } from "../lib/tender-data";
 import { appendRequirementDrafts, requirementDraftSchema, requirementKey } from "../lib/requirement-items";
 import { splitRequirementsBrief, sameTenderSources, requirementsInFlight } from "../lib/tender-requirements";
 import { requirementsProcessing } from "../lib/requirements-jobs";
+import { EVALUATED_CARD_SCOPE, visibleRequirements } from "../lib/requirement-scope";
 import { publicSourceUrl, researchSuppliers, supplierOptionInputSchema } from "../lib/supplier-research";
 
 const router: IRouter = Router();
@@ -51,9 +52,10 @@ async function change(row: RequirementItem, fields: Partial<typeof requirementIt
 router.get("/tenders/:tenderId/requirement-items", async (req, res): Promise<void> => {
   const id = z.string().uuid().safeParse(req.params.tenderId);
   if (!id.success) { res.status(400).json({ error: "Invalid tender identifier." }); return; }
-  if (!await ownedTender(id.data, req.user!.id)) { res.status(404).json({ error: "Tender not found." }); return; }
+  const tender = await ownedTender(id.data, req.user!.id);
+  if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
   const rows = await db.select().from(requirementItemsTable).where(and(eq(requirementItemsTable.tenderId, id.data), eq(requirementItemsTable.ownerId, req.user!.id))).orderBy(requirementItemsTable.createdAt, requirementItemsTable.id);
-  res.json(ListRequirementItemsResponse.parse(rows));
+  res.json(ListRequirementItemsResponse.parse(visibleRequirements(rows, tender.requirementsExtraction)));
 });
 router.post("/tenders/:tenderId/requirement-items", async (req, res): Promise<void> => {
   const id = z.string().uuid().safeParse(req.params.tenderId);
@@ -74,11 +76,14 @@ router.post("/tenders/:tenderId/requirement-items/import", async (req, res): Pro
   const owner = req.user!.id;
   const tender = await ownedTender(id.data, owner);
   if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
+  if (tender.requirementsExtraction && tender.requirementsExtraction.cardScope !== EVALUATED_CARD_SCOPE) {
+    res.status(409).json({ error: "Extract the tender again under the assessed-requirements rules before importing from its brief. Previous evidence is preserved." }); return;
+  }
   if (await requirementsProcessing(owner)) { res.status(429).json({ error: "Requirements extraction is already running." }); return; }
   requirementsInFlight.add(owner);
   try {
     const drafts = tender.requirements.trim() ? await splitRequirementsBrief(tender.requirements) :
-      tender.requirementsExtraction?.items?.length ? tender.requirementsExtraction.items :
+      tender.requirementsExtraction?.cardScope === EVALUATED_CARD_SCOPE && tender.requirementsExtraction.items?.length ? tender.requirementsExtraction.items :
       await splitRequirementsBrief(tender.requirementsExtraction?.requirements || "");
     await db.transaction(tx => appendRequirementDrafts(tx, tender.id, owner, tender.requirementsExtraction?.id ?? null, drafts));
     const rows = await db.select().from(requirementItemsTable).where(eq(requirementItemsTable.tenderId, tender.id)).orderBy(requirementItemsTable.createdAt, requirementItemsTable.id);

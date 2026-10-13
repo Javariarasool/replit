@@ -1175,6 +1175,7 @@ components:
         extractedAt: { type: string, format: date-time }
         reviewedAt: { type: [string, "null"], format: date-time }
         job: { $ref: "#/components/schemas/RequirementsJob" }
+        cardScope: { type: string, enum: [evaluated_only] }
         items: { type: array, items: { $ref: "#/components/schemas/RequirementDraft" } }
         warnings:
           type: array

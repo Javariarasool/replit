@@ -24,6 +24,7 @@ export interface RequirementsExtraction {
   extractedAt: string;
   reviewedAt: string | null;
   items?: import("./requirement-items").RequirementDraft[];
+  cardScope?: "evaluated_only";
   job?: {
     id: string;
     status: "processing" | "failed" | "completed";
@@ -36,6 +37,7 @@ export interface RequirementsExtraction {
     results?: { label: string; result: { summary: string; requirements: string; warnings: string[]; items: import("./requirement-items").RequirementDraft[] } }[];
     token?: string | null;
     leaseUntil?: string | null;
+    cardScope?: "evaluated_only";
   };
 }
 

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RequirementDraft } from './requirementDraft';
+import type { RequirementsExtractionCardScope } from './requirementsExtractionCardScope';
 import type { RequirementsExtractionSourceFilesItem } from './requirementsExtractionSourceFilesItem';
 import type { RequirementsJob } from './requirementsJob';
 
@@ -17,6 +18,7 @@ export interface RequirementsExtraction {
   /** @nullable */
   reviewedAt: Date | null;
   job?: RequirementsJob;
+  cardScope?: RequirementsExtractionCardScope;
   items?: RequirementDraft[];
   warnings: string[];
   sourceFiles: RequirementsExtractionSourceFilesItem[];

@@ -239,6 +239,7 @@ function TenderWorkspace({ userId, sessionExpired }: { userId: string; sessionEx
   const performDelete = () => deleteTender.mutate({ tenderId: id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getListTendersQueryKey() }); void qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); navigate('/'); }, onError: e => setError(errorText(e)) });
   const runGenerate = (ids: string[]) => { setError(''); gen.mutate({ tenderId: id, data: { aiConsent: true, ...(ids.length ? { libraryEntryIds: ids } : {}) } }, { onSuccess: refresh, onError: e => setError(errorText(e)) }); setDialog(null); };
   const requirementsBlocked = extractingRequirements ? 'Tender requirements are being extracted. Review them before generating.' :
+    tender.requirementsExtraction && tender.requirementsExtraction.cardScope !== 'evaluated_only' ? 'Extract again to build the bid-evaluation and compliance checklist, then review it before generating.' :
     requirementItems.isLoading || requirementItems.isError ? 'Individual requirements must be loaded before proposal generation.' :
     requirementItems.data?.some(r => r.reviewStatus !== 'approved' || r.extractionId !== (tender.requirementsExtraction?.id ?? null)) ? 'Review each individual requirement against the current tender before generating.' :
     requirementItems.data?.some(r => r.requiresVendor && !r.options.some(o => o.id === r.selectedOptionId && o.reviewed)) ? 'Choose and confirm a supplier/product for every requirement that needs a vendor.' :

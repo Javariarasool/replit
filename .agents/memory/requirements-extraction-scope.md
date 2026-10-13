@@ -7,7 +7,13 @@ The user stated: "tender requirements should be automatically extracted from the
 
 **Why:** The user asked; entering tender clauses manually is not the intended primary workflow.
 
-**How to apply:** Tender/RFP uploads should lead to automatic requirement extraction, including administrative and commercial clauses as well as technical specifications. Keep historical proposal guidance separate from current tender requirements.
+**How to apply:** Tender/RFP uploads should lead to automatic requirement extraction. The full brief may retain administrative and commercial context alongside technical specifications, but individual cards follow the assessed-only scope below. Keep historical proposal guidance separate from current tender requirements.
+
+The user specified: "only the requirements against whom we would be marked should show not any general statement". They confirmed tender compliance checklist items requiring a response.
+
+**Why:** The user wants the Requirements list to reflect bid assessment, not every statement in the tender.
+
+**How to apply:** Create cards only for explicit compliance responses, pass/fail eligibility, scored evaluation criteria and mandatory bid submissions/evidence assessed for responsiveness. Do not treat every "shall" or post-award instruction as an evaluated requirement. Keep general context in the brief. Preserve excluded historical cards/evidence in storage, but exclude them from the current list and proposal decisions after rebuilding the assessed checklist.
 
 Extraction must not silently overwrite a human's working brief when a new document or amendment is uploaded.
 

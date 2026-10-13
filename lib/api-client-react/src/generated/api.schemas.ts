@@ -631,6 +631,13 @@ export interface RequirementsJob {
   sourceFiles: RequirementsJobSourceFilesItem[];
 }
 
+export type RequirementsExtractionCardScope = typeof RequirementsExtractionCardScope[keyof typeof RequirementsExtractionCardScope];
+
+
+export const RequirementsExtractionCardScope = {
+  evaluated_only: 'evaluated_only',
+} as const;
+
 export type RequirementsExtractionSourceFilesItem = {
   id: string;
   name: string;
@@ -644,6 +651,7 @@ export interface RequirementsExtraction {
   /** @nullable */
   reviewedAt: string | null;
   job?: RequirementsJob;
+  cardScope?: RequirementsExtractionCardScope;
   items?: RequirementDraft[];
   warnings: string[];
   sourceFiles: RequirementsExtractionSourceFilesItem[];

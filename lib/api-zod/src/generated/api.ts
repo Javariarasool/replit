@@ -341,6 +341,7 @@ export const GetDashboardSummaryResponse = zod.object({
   "name": zod.string()
 }))
 }).optional(),
+  "cardScope": zod.enum(['evaluated_only']).optional(),
   "items": zod.array(zod.object({
   "title": zod.string().min(1).max(getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemTitleMax),
   "description": zod.string().min(1).max(getDashboardSummaryResponseRecentTendersItemTwoRequirementsExtractionOneItemsItemDescriptionMax),
@@ -410,6 +411,7 @@ export const ListTendersResponseItem = zod.object({
   "name": zod.string()
 }))
 }).optional(),
+  "cardScope": zod.enum(['evaluated_only']).optional(),
   "items": zod.array(zod.object({
   "title": zod.string().min(1).max(listTendersResponseTwoRequirementsExtractionOneItemsItemTitleMax),
   "description": zod.string().min(1).max(listTendersResponseTwoRequirementsExtractionOneItemsItemDescriptionMax),
@@ -493,6 +495,7 @@ export const CreateTenderResponse = zod.object({
   "name": zod.string()
 }))
 }).optional(),
+  "cardScope": zod.enum(['evaluated_only']).optional(),
   "items": zod.array(zod.object({
   "title": zod.string().min(1).max(createTenderResponseTwoRequirementsExtractionOneItemsItemTitleMax),
   "description": zod.string().min(1).max(createTenderResponseTwoRequirementsExtractionOneItemsItemDescriptionMax),
@@ -565,6 +568,7 @@ export const GetTenderResponse = zod.object({
   "name": zod.string()
 }))
 }).optional(),
+  "cardScope": zod.enum(['evaluated_only']).optional(),
   "items": zod.array(zod.object({
   "title": zod.string().min(1).max(getTenderResponseOneTwoRequirementsExtractionOneItemsItemTitleMax),
   "description": zod.string().min(1).max(getTenderResponseOneTwoRequirementsExtractionOneItemsItemDescriptionMax),
@@ -656,6 +660,7 @@ export const UpdateTenderResponse = zod.object({
   "name": zod.string()
 }))
 }).optional(),
+  "cardScope": zod.enum(['evaluated_only']).optional(),
   "items": zod.array(zod.object({
   "title": zod.string().min(1).max(updateTenderResponseTwoRequirementsExtractionOneItemsItemTitleMax),
   "description": zod.string().min(1).max(updateTenderResponseTwoRequirementsExtractionOneItemsItemDescriptionMax),
@@ -742,6 +747,7 @@ export const ExtractTenderRequirementsResponse = zod.object({
   "name": zod.string()
 }))
 }).optional(),
+  "cardScope": zod.enum(['evaluated_only']).optional(),
   "items": zod.array(zod.object({
   "title": zod.string().min(1).max(extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemTitleMax),
   "description": zod.string().min(1).max(extractTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemDescriptionMax),
@@ -814,6 +820,7 @@ export const ProcessTenderRequirementsResponse = zod.object({
   "name": zod.string()
 }))
 }).optional(),
+  "cardScope": zod.enum(['evaluated_only']).optional(),
   "items": zod.array(zod.object({
   "title": zod.string().min(1).max(processTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemTitleMax),
   "description": zod.string().min(1).max(processTenderRequirementsResponseTwoRequirementsExtractionOneItemsItemDescriptionMax),
