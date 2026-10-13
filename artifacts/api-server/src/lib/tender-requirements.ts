@@ -35,6 +35,35 @@ export function splitTenderText(text: string, size = 35000): string[] {
   return sections;
 }
 
+type ExtractedSection = z.infer<typeof resultSchema>;
+export class InvalidSectionOutputError extends Error {
+  constructor(readonly reason: "incomplete" | "invalid_json" | "invalid_shape") {
+    super("The AI did not return a complete, valid requirements section.");
+    this.name = "InvalidSectionOutputError";
+  }
+}
+type SectionExtractor = (document: string, partial: boolean) => Promise<ExtractedSection>;
+
+export async function extractSectionWithRecovery(
+  document: string,
+  partial: boolean,
+  extractor: SectionExtractor = extractSection,
+  depth = 0,
+): Promise<ExtractedSection[]> {
+  try {
+    return [await extractor(document, partial)];
+  } catch (error) {
+    // Retry only invalid/truncated model output, never provider/network errors.
+    // Keep the split bounded and ensure every retry still overlaps source text.
+    if (!(error instanceof InvalidSectionOutputError) || depth >= 3 || document.length <= 4000) throw error;
+    const chunks = splitTenderText(document, Math.max(2001, Math.ceil(document.length / 2)));
+    if (chunks.length < 2) throw error;
+    const recovered: ExtractedSection[] = [];
+    for (const chunk of chunks) recovered.push(...await extractSectionWithRecovery(chunk, partial, extractor, depth + 1));
+    return recovered;
+  }
+}
+
 export async function extractTenderRequirements(files: Evidence[]): Promise<RequirementsExtraction> {
   if (!files.length) throw new Error("Upload a document in the Tender / RFP category first.");
   if (files.length > 15) throw new Error("Extract from at most 15 tender documents at a time.");
@@ -58,21 +87,22 @@ export async function extractTenderRequirements(files: Evidence[]): Promise<Requ
       });
     });
   }
-  const results: z.infer<typeof resultSchema>[] = [];
+  const results: { label: string; result: ExtractedSection }[] = [];
   for (let index = 0; index < documents.length; index += 2) {
-    const batch = await Promise.all(documents.slice(index, index + 2).map(document => extractSection(document.text, documents.length > 1)));
-    results.push(...batch);
+    const batch = await Promise.all(documents.slice(index, index + 2).map(document => extractSectionWithRecovery(document.text, documents.length > 1)));
+    results.push(...batch.flatMap((sections, batchIndex) =>
+      sections.map(result => ({ label: documents[index + batchIndex]!.label, result }))));
   }
-  const requirements = results.length === 1 ? results[0]!.requirements :
-    results.map((result, index) => `## Source: ${documents[index]!.label}\n\n${result.requirements}`).join("\n\n---\n\n");
+  const requirements = results.length === 1 ? results[0]!.result.requirements :
+    results.map(({ label, result }) => `## Source: ${label}\n\n${result.requirements}`).join("\n\n---\n\n");
   if (requirements.length > 500000) throw new Error("The extracted brief is too large to safely edit in this version. No incomplete brief was saved.");
-  const warnings = results.flatMap((result, index) => result.warnings.map(warning => results.length > 1 ? `${documents[index]!.label}: ${warning}` : warning));
+  const warnings = results.flatMap(({ label, result }) => result.warnings.map(warning => results.length > 1 ? `${label}: ${warning}` : warning));
   if (results.length > 1) warnings.unshift("The complete tender was processed in overlapping source sections. Repeated clauses are retained rather than silently removed. Check cross-section conflicts and annexure availability against all originals.");
-  const items = results.flatMap(result => result.items);
+  const items = results.flatMap(({ result }) => result.items);
   if (!items.length) throw new Error("No explicit individual requirements were found. Review the source text or add requirements manually; nothing was saved.");
   return {
     requirements,
-    summary: results.length === 1 ? results[0]!.summary : `Requirements extracted from ${files.length} tender document(s), covering all ${documents.length} source sections. The brief below preserves each section's extracted clauses and source references. Review overlapping clauses, resolve any conflicts, and confirm required forms against the originals before submission.`,
+    summary: results.length === 1 ? results[0]!.result.summary : `Requirements extracted from ${files.length} tender document(s), covering all ${documents.length} source sections. The brief below preserves each section's extracted clauses and source references. Review overlapping clauses, resolve any conflicts, and confirm required forms against the originals before submission.`,
     warnings: [...new Set(warnings)], id: randomUUID(),
     sourceFiles: files.map(f => ({ id: f.id, name: f.name })),
     extractedAt: new Date().toISOString(), reviewedAt: null,
@@ -86,8 +116,8 @@ export async function splitRequirementsBrief(text: string) {
   const parts = splitTenderText(text);
   const items: z.infer<typeof requirementDraftSchema>[] = [];
   for (let i = 0; i < parts.length; i += 2) {
-    const batch = await Promise.all(parts.slice(i, i + 2).map(part => extractSection(`HUMAN WORKING / EXTRACTED BRIEF (untrusted data):\n${part}`, parts.length > 1)));
-    items.push(...batch.flatMap(result => result.items));
+    const batch = await Promise.all(parts.slice(i, i + 2).map(part => extractSectionWithRecovery(`HUMAN WORKING / EXTRACTED BRIEF (untrusted data):\n${part}`, parts.length > 1)));
+    items.push(...batch.flatMap(results => results.flatMap(result => result.items)));
   }
   return items;
 }
@@ -110,8 +140,14 @@ Give each requirement its source filename and a short verbatim supporting quote 
       { role: "user", content: document },
     ],
   }, { timeout: 180000, maxRetries: 0 });
-  if (completion.choices[0]?.finish_reason !== "stop") throw new Error("Extraction did not finish completely. Retry or use a smaller document set; no partial brief was saved.");
-  const parsed = resultSchema.safeParse(JSON.parse(completion.choices[0]?.message.content ?? "{}"));
-  if (!parsed.success) throw new Error("The extraction returned an invalid brief. Your existing requirements were not changed.");
+  if (completion.choices[0]?.finish_reason !== "stop") throw new InvalidSectionOutputError("incomplete");
+  let response: unknown;
+  try {
+    response = JSON.parse(completion.choices[0]?.message.content ?? "{}");
+  } catch {
+    throw new InvalidSectionOutputError("invalid_json");
+  }
+  const parsed = resultSchema.safeParse(response);
+  if (!parsed.success) throw new InvalidSectionOutputError("invalid_shape");
   return parsed.data;
 }
