@@ -18,7 +18,7 @@ export function sameTenderSources(files: Evidence[], extraction: RequirementsExt
   return JSON.stringify(ids) === JSON.stringify(extraction.sourceFiles.map(f => f.id).sort());
 }
 
-export function splitTenderText(text: string, size = 35000): string[] {
+export function splitTenderText(text: string, size = 8000): string[] {
   if (size <= 2000) throw new Error("Section size must exceed the overlap.");
   const sections: string[] = [];
   let start = 0;
@@ -35,7 +35,7 @@ export function splitTenderText(text: string, size = 35000): string[] {
   return sections;
 }
 
-type ExtractedSection = z.infer<typeof resultSchema>;
+export type ExtractedSection = z.infer<typeof resultSchema>;
 export class InvalidSectionOutputError extends Error {
   constructor(readonly reason: "incomplete" | "invalid_json" | "invalid_shape", readonly validationIssues: string[] = []) {
     super("The AI did not return a complete, valid requirements section.");
@@ -89,7 +89,7 @@ export async function extractSectionWithRecovery(
   }
 }
 
-export async function extractTenderRequirements(files: Evidence[]): Promise<RequirementsExtraction> {
+export async function prepareTenderSections(files: Evidence[]) {
   if (!files.length) throw new Error("Upload a document in the Tender / RFP category first.");
   if (files.length > 15) throw new Error("Extract from at most 15 tender documents at a time.");
   const documents: { label: string; text: string }[] = [];
@@ -112,12 +112,13 @@ export async function extractTenderRequirements(files: Evidence[]): Promise<Requ
       });
     });
   }
-  const results: { label: string; result: ExtractedSection }[] = [];
-  for (let index = 0; index < documents.length; index += 2) {
-    const batch = await Promise.all(documents.slice(index, index + 2).map(document => extractSectionWithRecovery(document.text, documents.length > 1)));
-    results.push(...batch.flatMap((sections, batchIndex) =>
-      sections.map(result => ({ label: documents[index + batchIndex]!.label, result }))));
-  }
+  return documents;
+}
+
+export function assembleTenderRequirements(
+  sourceFiles: { id: string; name: string }[],
+  results: { label: string; result: ExtractedSection }[],
+): RequirementsExtraction {
   const requirements = results.length === 1 ? results[0]!.result.requirements :
     results.map(({ label, result }) => `## Source: ${label}\n\n${result.requirements}`).join("\n\n---\n\n");
   if (requirements.length > 500000) throw new Error("The extracted brief is too large to safely edit in this version. No incomplete brief was saved.");
@@ -127,12 +128,21 @@ export async function extractTenderRequirements(files: Evidence[]): Promise<Requ
   if (!items.length) throw new Error("No explicit individual requirements were found. Review the source text or add requirements manually; nothing was saved.");
   return {
     requirements,
-    summary: results.length === 1 ? results[0]!.result.summary : `Requirements extracted from ${files.length} tender document(s), covering all ${documents.length} source sections. The brief below preserves each section's extracted clauses and source references. Review overlapping clauses, resolve any conflicts, and confirm required forms against the originals before submission.`,
-    warnings: [...new Set(warnings)], id: randomUUID(),
-    sourceFiles: files.map(f => ({ id: f.id, name: f.name })),
-    extractedAt: new Date().toISOString(), reviewedAt: null,
-    items,
+    summary: results.length === 1 ? results[0]!.result.summary : `Requirements extracted from ${sourceFiles.length} tender document(s), covering all ${results.length} source sections. Review overlapping clauses, conflicts and forms against the originals before submission.`,
+    warnings: [...new Set(warnings)], id: randomUUID(), sourceFiles,
+    extractedAt: new Date().toISOString(), reviewedAt: null, items,
   };
+}
+
+export async function extractTenderRequirements(files: Evidence[]): Promise<RequirementsExtraction> {
+  const documents = await prepareTenderSections(files);
+  const results: { label: string; result: ExtractedSection }[] = [];
+  for (let index = 0; index < documents.length; index += 2) {
+    const batch = await Promise.all(documents.slice(index, index + 2).map(document => extractSectionWithRecovery(document.text, documents.length > 1)));
+    results.push(...batch.flatMap((sections, batchIndex) =>
+      sections.map(result => ({ label: documents[index + batchIndex]!.label, result }))));
+  }
+  return assembleTenderRequirements(files.map(f => ({ id: f.id, name: f.name })), results);
 }
 
 export async function splitRequirementsBrief(text: string) {

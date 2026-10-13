@@ -9,7 +9,8 @@ import {
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, ownedTender } from "../lib/tender-data";
 import { evidenceContext } from "../lib/documents";
-import { requirementsInFlight, sameTenderSources } from "../lib/tender-requirements";
+import { sameTenderSources } from "../lib/tender-requirements";
+import { requirementsProcessing } from "../lib/requirements-jobs";
 import { requirementProposalContext } from "../lib/requirement-proposal-context";
 import { ensureExtraction, draftingText } from "../lib/document-extractions";
 import { resolveTenderEvidence } from "../lib/company-evidence";
@@ -49,7 +50,7 @@ router.post("/tenders/:tenderId/proposals/generate", async (req, res): Promise<v
   try {
     if (requirementRows.length) requirementContext = requirementProposalContext(requirementRows, usable, tender.requirementsExtraction?.id ?? null);
   } catch (e) { res.status(409).json({ error: e instanceof Error ? e.message : "Review requirements and supplier choices first." }); return; }
-  if (requirementsInFlight.has(ownerId)) { res.status(409).json({ error: "Tender requirements are still being extracted. Wait and review them before generating." }); return; }
+  if (await requirementsProcessing(ownerId)) { res.status(409).json({ error: "Tender requirements are still being extracted. Wait and review them before generating." }); return; }
   if (tender.requirementsExtraction && ((!requirementRows.length && !tender.requirementsExtraction.reviewedAt) || !sameTenderSources(files, tender.requirementsExtraction))) {
     res.status(400).json({ error: "Review and apply the extracted requirements first. If tender documents changed, extract them again." }); return;
   }

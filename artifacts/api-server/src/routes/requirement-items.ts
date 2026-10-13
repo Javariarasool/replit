@@ -11,6 +11,7 @@ import {
 import { ownedTender, requireAuth } from "../lib/tender-data";
 import { appendRequirementDrafts, requirementDraftSchema, requirementKey } from "../lib/requirement-items";
 import { splitRequirementsBrief, sameTenderSources, requirementsInFlight } from "../lib/tender-requirements";
+import { requirementsProcessing } from "../lib/requirements-jobs";
 import { publicSourceUrl, researchSuppliers, supplierOptionInputSchema } from "../lib/supplier-research";
 
 const router: IRouter = Router();
@@ -33,7 +34,7 @@ async function evidenceOwned(ids: string[], row: { tenderId: string; ownerId: st
 async function currentTender(row: RequirementItem) {
   const tender = await ownedTender(row.tenderId, row.ownerId);
   if (!tender) throw new Error("Tender not found.");
-  if (requirementsInFlight.has(row.ownerId)) throw new Error("Wait for tender extraction to finish before reviewing or researching clauses.");
+  if (await requirementsProcessing(row.ownerId)) throw new Error("Wait for tender extraction to finish before reviewing or researching clauses.");
   if (tender.requirementsExtraction) {
     const files = await db.select().from(evidenceTable).where(eq(evidenceTable.tenderId, row.tenderId));
     if (!sameTenderSources(files, tender.requirementsExtraction)) throw new Error("Tender documents changed. Extract the current tender before approving or researching requirements.");
@@ -73,7 +74,7 @@ router.post("/tenders/:tenderId/requirement-items/import", async (req, res): Pro
   const owner = req.user!.id;
   const tender = await ownedTender(id.data, owner);
   if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
-  if (requirementsInFlight.has(owner)) { res.status(429).json({ error: "Requirements extraction is already running." }); return; }
+  if (await requirementsProcessing(owner)) { res.status(429).json({ error: "Requirements extraction is already running." }); return; }
   requirementsInFlight.add(owner);
   try {
     const drafts = tender.requirements.trim() ? await splitRequirementsBrief(tender.requirements) :

@@ -6,7 +6,7 @@ import {
   useGetDashboardSummary, useListTenders, useCreateTender, useGetTender, useUpdateTender, useDeleteTender,
   useListTenderEvidence, useAddTenderEvidence, useDeleteEvidence, useListVendorSources, useAddVendorSource,
   useReviewVendorSource, useListProposals, useGenerateProposalPair, useUpdateProposal, useRequestUploadUrl,
-  useResearchVendorSource, useExtractTenderRequirements, useGetDocumentExtraction, getGetDocumentExtractionQueryKey,
+  useResearchVendorSource, useExtractTenderRequirements, useProcessTenderRequirements, useGetDocumentExtraction, getGetDocumentExtractionQueryKey,
   useListRequirementItems, getListRequirementItemsQueryKey,
   useListCompanyEvidence, useLinkCompanyEvidence, useReviewEvidenceApplicability,
   getGetDashboardSummaryQueryKey, getListTendersQueryKey, getGetTenderQueryKey, getListTenderEvidenceQueryKey,
@@ -194,6 +194,23 @@ function TenderWorkspace({ userId, sessionExpired }: { userId: string; sessionEx
   const setTab = (next: 'requirements' | 'evidence' | 'sources' | 'proposals') => navigate(`/tenders/${id}?tab=${next}`, { replace: true });
   const [dialog, setDialog] = useState<DialogName>(null); const [deleteConfirm, setDeleteConfirm] = useState(false); const [error, setError] = useState('');
   const tender = detail.data;
+  const processRequirements = useProcessTenderRequirements();
+  const requirementsJob = tender?.requirementsExtraction?.job;
+  const extractingRequirements = extract.isPending || requirementsJob?.status === 'processing';
+  useEffect(() => {
+    if (sessionExpired || requirementError || requirementsJob?.status !== 'processing' || processRequirements.isPending || extract.isPending) return;
+    const timer = window.setTimeout(() => processRequirements.mutate({ tenderId: id }, {
+      onSuccess: updated => {
+        qc.setQueryData(getGetTenderQueryKey(id), updated);
+        if (updated.requirementsExtraction?.job?.status !== 'processing') {
+          void qc.invalidateQueries({ queryKey: getListRequirementItemsQueryKey(id) });
+          void qc.invalidateQueries({ queryKey: getListTendersQueryKey() });
+        }
+      },
+      onError: e => setRequirementError(`Extraction paused; completed sections are saved. Reload to resume. ${errorText(e)}`),
+    }), 1000);
+    return () => window.clearTimeout(timer);
+  }, [id, requirementsJob, processRequirements.isPending, extract.isPending, sessionExpired, requirementError, qc]);
   const requirementItems = useListRequirementItems(id);
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: getGetTenderQueryKey(id) }); void qc.invalidateQueries({ queryKey: getListTendersQueryKey() });
@@ -201,7 +218,7 @@ function TenderWorkspace({ userId, sessionExpired }: { userId: string; sessionEx
     void qc.invalidateQueries({ queryKey: getListVendorSourcesQueryKey(id) }); void qc.invalidateQueries({ queryKey: getListProposalsQueryKey(id) });
     void qc.invalidateQueries({ queryKey: getListRequirementItemsQueryKey(id) });
   };
-  const runExtraction = () => { if (sessionExpired) return; setTab('requirements'); setRequirementError(''); extract.mutate({ tenderId: id, data: { aiConsent: true } }, { onSuccess: refresh, onError: e => { refresh(); setRequirementError(`Your uploaded documents and saved brief are unchanged. ${errorText(e)}`); } }); };
+  const runExtraction = () => { if (sessionExpired) return; setTab('requirements'); setRequirementError(''); extract.mutate({ tenderId: id, data: { aiConsent: true } }, { onSuccess: updated => { qc.setQueryData(getGetTenderQueryKey(id), updated); refresh(); }, onError: e => { refresh(); setRequirementError(`Your uploaded documents and saved brief are unchanged. ${errorText(e)}`); } }); };
   useEffect(() => {
     if (!pendingReadPath || sessionExpired) return;
     const result = localReading.data;
@@ -221,7 +238,7 @@ function TenderWorkspace({ userId, sessionExpired }: { userId: string; sessionEx
   const pending = (sourceQuery.data ?? []).filter(source => source.reviewStatus === 'pending').length;
   const performDelete = () => deleteTender.mutate({ tenderId: id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getListTendersQueryKey() }); void qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); navigate('/'); }, onError: e => setError(errorText(e)) });
   const runGenerate = (ids: string[]) => { setError(''); gen.mutate({ tenderId: id, data: { aiConsent: true, ...(ids.length ? { libraryEntryIds: ids } : {}) } }, { onSuccess: refresh, onError: e => setError(errorText(e)) }); setDialog(null); };
-  const requirementsBlocked = extract.isPending ? 'Tender requirements are being extracted. Review them before generating.' :
+  const requirementsBlocked = extractingRequirements ? 'Tender requirements are being extracted. Review them before generating.' :
     requirementItems.isLoading || requirementItems.isError ? 'Individual requirements must be loaded before proposal generation.' :
     requirementItems.data?.some(r => r.reviewStatus !== 'approved' || r.extractionId !== (tender.requirementsExtraction?.id ?? null)) ? 'Review each individual requirement against the current tender before generating.' :
     requirementItems.data?.some(r => r.requiresVendor && !r.options.some(o => o.id === r.selectedOptionId && o.reviewed)) ? 'Choose and confirm a supplier/product for every requirement that needs a vendor.' :
@@ -242,7 +259,7 @@ function TenderWorkspace({ userId, sessionExpired }: { userId: string; sessionEx
     </div>
     <div className="mt-7 flex gap-1 overflow-x-auto border-b border-border pb-px">{nav.map(item => { const count = 'count' in item ? item.count : undefined; return <button key={item.key} onClick={() => setTab(item.key)} className={cn('relative flex shrink-0 items-center gap-2 px-3 py-3 text-xs font-bold transition-colors', tab === item.key ? 'text-primary' : 'text-muted-foreground hover:text-foreground')} data-testid={`tab-${item.key}`}>{item.icon}{item.label}{count !== undefined && <span className="mono rounded bg-secondary px-1.5 py-0.5 text-[10px]">{count}</span>}{tab === item.key && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded bg-primary"/>}</button>; })}</div>
     <div className="pt-6">
-      <div hidden={tab !== 'requirements'}><RequirementsPanel key={`${userId}:${id}`} tender={tender} userId={userId} files={evidenceQuery.data ?? []} onSave={(requirements, summary, reviewedExtractionId) => { setRequirementError(''); updateTender.mutate({ tenderId: id, data: { requirements, summary, ...(reviewedExtractionId ? { reviewedExtractionId } : {}) } }, { onSuccess: () => { try { window.sessionStorage.removeItem(`tender-draft:${userId}:${id}`); } catch { /* Storage may be blocked. */ } refresh(); }, onError: e => setRequirementError(errorText(e)) }); }} saving={updateTender.isPending} extracting={extract.isPending} error={requirementError} onExtract={runExtraction} onUpload={() => setTenderUploadOpen(true)}/></div>
+      <div hidden={tab !== 'requirements'}><RequirementsPanel key={`${userId}:${id}`} tender={tender} userId={userId} files={evidenceQuery.data ?? []} onSave={(requirements, summary, reviewedExtractionId) => { setRequirementError(''); updateTender.mutate({ tenderId: id, data: { requirements, summary, ...(reviewedExtractionId ? { reviewedExtractionId } : {}) } }, { onSuccess: () => { try { window.sessionStorage.removeItem(`tender-draft:${userId}:${id}`); } catch { /* Storage may be blocked. */ } refresh(); }, onError: e => setRequirementError(errorText(e)) }); }} saving={updateTender.isPending} extracting={extractingRequirements} error={requirementError} onExtract={runExtraction} onUpload={() => setTenderUploadOpen(true)}/></div>
       {tab === 'evidence' && <EvidencePanel tenderId={id} userId={userId} evidence={evidenceQuery.data ?? []} loading={evidenceQuery.isLoading} failed={evidenceQuery.isError} onRetry={() => void evidenceQuery.refetch()} onChanged={refresh} onTenderUploaded={afterTenderUpload}/>}
       {tab === 'sources' && <SourcesPanel sources={sourceQuery.data ?? []} loading={sourceQuery.isLoading} failed={sourceQuery.isError} onRetry={() => void sourceQuery.refetch()} onAdd={() => setDialog('source')} onResearch={() => setDialog('research')} onReview={(source, status) => reviewSource.mutate({ sourceId: source.id, data: { reviewStatus: status } }, { onSuccess: refresh })} busy={reviewSource.isPending}/>}
       {tab === 'proposals' && <ProposalPanel tender={tender} proposals={proposalsQuery.data ?? []} loading={proposalsQuery.isLoading} failed={proposalsQuery.isError} onRetry={() => void proposalsQuery.refetch()} onGenerate={() => setDialog('generate')} generating={gen.isPending} error={error} requirementsBlocked={requirementsBlocked}/>}

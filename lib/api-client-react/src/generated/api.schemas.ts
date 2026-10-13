@@ -597,6 +597,30 @@ export type RequirementItem = RequirementDraft & ({
   updatedAt: string;
 });
 
+export type RequirementsJobStatus = typeof RequirementsJobStatus[keyof typeof RequirementsJobStatus];
+
+
+export const RequirementsJobStatus = {
+  processing: 'processing',
+  failed: 'failed',
+  completed: 'completed',
+} as const;
+
+export type RequirementsJobSourceFilesItem = {
+  id: string;
+  name: string;
+};
+
+export interface RequirementsJob {
+  id: string;
+  status: RequirementsJobStatus;
+  completedSections: number;
+  totalSections: number;
+  /** @nullable */
+  error: string | null;
+  sourceFiles: RequirementsJobSourceFilesItem[];
+}
+
 export type RequirementsExtractionSourceFilesItem = {
   id: string;
   name: string;
@@ -609,6 +633,7 @@ export interface RequirementsExtraction {
   extractedAt: string;
   /** @nullable */
   reviewedAt: string | null;
+  job?: RequirementsJob;
   items?: RequirementDraft[];
   warnings: string[];
   sourceFiles: RequirementsExtractionSourceFilesItem[];

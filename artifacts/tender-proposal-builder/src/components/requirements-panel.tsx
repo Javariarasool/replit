@@ -52,6 +52,7 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
     }
   }, [draftKey, userId, requirements, summary, reviewId, tender.requirements, tender.summary]);
   const extraction = tender.requirementsExtraction;
+  const job = extraction?.job;
   const rfpFiles = files.filter(f => f.category === 'tender_rfp');
   const changed = !!extraction && JSON.stringify(rfpFiles.map(f => f.id).sort()) !== JSON.stringify(extraction.sourceFiles.map(f => f.id).sort());
   const pending = !!extraction && !extraction.reviewedAt;
@@ -71,10 +72,13 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
         <Button onClick={() => setConsentOpen(true)} disabled={extracting || saving || !rfpFiles.length} data-testid="button-extract-requirements"><Sparkles size={15}/>{extraction ? 'Extract again' : 'Extract from tender'}</Button></div>
     </div>
     <RequirementWorkspace tender={tender} files={files}/>
-    {extracting && <div role="status" className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm"><LoaderCircle size={18} className="animate-spin"/>Reading tender documents and extracting requirements. Your saved brief will not be overwritten.</div>}
+    {extracting && <div role="status" data-testid="requirements-extraction-progress" className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm"><LoaderCircle size={18} className="animate-spin"/><div>{job?.status === 'processing' ? `Separating requirements: ${job.completedSections} of ${job.totalSections} source sections complete.` : 'Preparing tender documents for requirement extraction.'}<p className="mt-1 text-xs text-muted-foreground">Progress is saved after each section. Keep this tender open to continue; reopening it resumes saved progress. Your working brief stays unchanged.</p>{job?.error && <p className="mt-2">{job.error}</p>}</div></div>}
+    {job?.status === 'failed' && <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"><p>{job.error}</p><p className="mt-2">{job.completedSections} of {job.totalSections} sections complete. No partial brief or requirement list has replaced your previous work.</p><Button className="mt-3" onClick={() => setConsentOpen(true)} disabled={saving} data-testid="button-retry-extraction">Retry saved extraction</Button></div>}
+    {job?.status === 'completed' && <p role="status" className="text-sm text-primary">All {job.totalSections} source sections processed. The extracted brief and individual requirements are ready for human review.</p>}
     {error && <div role={waitingForOcr ? 'status' : 'alert'} className={cn('rounded-xl border p-4 text-sm', waitingForOcr ? 'border-amber-900/20 bg-amber-900/5 text-amber-950' : 'border-destructive/20 bg-destructive/5 text-destructive')}>
       {waitingForOcr && <p className="mb-2 font-bold">OCR verification required—not a failed upload</p>}
       <p>{error}</p>
+      {job?.status === 'processing' && <Button className="mt-3" onClick={() => setConsentOpen(true)} disabled={saving} data-testid="button-resume-extraction">Resume saved extraction</Button>}
       {waitingForOcr && <p className="mt-2">Review and verify the OCR for each scanned source below, then choose Extract from tender. Unverified OCR is not sent to the requirements AI.</p>}
     </div>}
     {!rfpFiles.length && <p className="text-sm text-muted-foreground">Upload a Tender / RFP document to begin. Manual entry remains available below.</p>}
@@ -83,7 +87,7 @@ export function RequirementsPanel({ tender, userId, files, saving, extracting, e
       <p className="mt-3 text-xs text-muted-foreground">Readable documents are extracted automatically. Scanned documents require checking the recognised text against the original before requirements can be extracted.</p>
       <div className="mt-3 space-y-4">{rfpFiles.map(file => <div key={file.id} className="rounded-lg border border-border p-3"><p className="break-words text-sm font-semibold">{file.name}</p><DocumentReview path={file.objectPath}/></div>)}</div>
     </details>}
-    {extraction && <div className="rounded-xl border border-primary/20 bg-card p-5" data-testid="panel-extracted-requirements">
+    {extraction?.requirements && <div className="rounded-xl border border-primary/20 bg-card p-5" data-testid="panel-extracted-requirements">
       <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold">Automatically extracted brief</h3><Pill tone={pending || changed ? 'amber' : 'blue'}>{changed ? 'Documents changed · extract again' : pending ? 'Human review required' : 'Reviewed'}</Pill></div>
       <p className="mt-2 text-xs text-muted-foreground">Sources: {extraction.sourceFiles.map(f => f.name).join(', ')}. Check quantities, mandatory clauses, dates, forms and source references against the originals.</p>
       {extraction.warnings.length > 0 && <div className="mt-3 rounded-lg bg-amber-900/5 p-3 text-xs text-amber-950"><p className="font-bold">Extraction warnings</p><ul className="mt-1 list-disc space-y-1 pl-4">{extraction.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></div>}

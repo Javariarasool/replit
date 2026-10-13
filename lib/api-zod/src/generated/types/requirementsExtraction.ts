@@ -7,6 +7,7 @@
  */
 import type { RequirementDraft } from './requirementDraft';
 import type { RequirementsExtractionSourceFilesItem } from './requirementsExtractionSourceFilesItem';
+import type { RequirementsJob } from './requirementsJob';
 
 export interface RequirementsExtraction {
   id: string;
@@ -15,6 +16,7 @@ export interface RequirementsExtraction {
   extractedAt: Date;
   /** @nullable */
   reviewedAt: Date | null;
+  job?: RequirementsJob;
   items?: RequirementDraft[];
   warnings: string[];
   sourceFiles: RequirementsExtractionSourceFilesItem[];

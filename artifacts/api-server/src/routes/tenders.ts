@@ -8,7 +8,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, ownedTender, tenderView, listTenderViews } from "../lib/tender-data";
 import { removeUnusedUpload } from "../lib/upload-cleanup";
-import { requirementsInFlight } from "../lib/tender-requirements";
+import { requirementsProcessing } from "../lib/requirements-jobs";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -66,7 +66,7 @@ router.patch("/tenders/:tenderId", async (req, res): Promise<void> => {
   const { closingDate, reviewedExtractionId, ...fields } = body.data;
   const current = await ownedTender(params.data.tenderId, req.user!.id);
   if (!current) { res.status(404).json({ error: "Tender not found." }); return; }
-  if (reviewedExtractionId && requirementsInFlight.has(req.user!.id)) {
+  if ((reviewedExtractionId || fields.requirements !== undefined) && await requirementsProcessing(req.user!.id)) {
     res.status(409).json({ error: "Wait for the running extraction, then review the latest result." }); return;
   }
   if (reviewedExtractionId && (current.requirementsExtraction?.id !== reviewedExtractionId || !fields.requirements?.trim())) {

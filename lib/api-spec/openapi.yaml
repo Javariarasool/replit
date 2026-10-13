@@ -271,7 +271,7 @@ paths:
               $ref: "#/components/schemas/ExtractRequirementsInput"
       responses:
         "200":
-          description: Tender with a persisted extraction awaiting human review
+          description: Tender with a durable extraction job; advance one section at a time
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Tender" }
@@ -280,6 +280,23 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
+  /tenders/{tenderId}/requirements/process:
+    post:
+      operationId: processTenderRequirements
+      tags: [tenders]
+      summary: Advance one section of an explicitly consented extraction job
+      parameters:
+        - $ref: "#/components/parameters/TenderId"
+      responses:
+        "200":
+          description: Tender with current progress or the completed extraction
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tender" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /tenders/{tenderId}/requirement-items:
     get:
       operationId: listRequirementItems
@@ -1098,6 +1115,23 @@ components:
             lastResearchedAt: { type: [string, "null"], format: date-time }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
+    RequirementsJob:
+      type: object
+      required: [id, status, completedSections, totalSections, error, sourceFiles]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [processing, failed, completed] }
+        completedSections: { type: integer }
+        totalSections: { type: integer }
+        error: { type: [string, "null"] }
+        sourceFiles:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
     RequirementsExtraction:
       type: object
       required: [id, requirements, summary, sourceFiles, warnings, extractedAt, reviewedAt]
@@ -1107,6 +1141,7 @@ components:
         summary: { type: string }
         extractedAt: { type: string, format: date-time }
         reviewedAt: { type: [string, "null"], format: date-time }
+        job: { $ref: "#/components/schemas/RequirementsJob" }
         items: { type: array, items: { $ref: "#/components/schemas/RequirementDraft" } }
         warnings:
           type: array

@@ -1,11 +1,9 @@
 import { Router, type IRouter } from "express";
-import { and, eq } from "drizzle-orm";
-import { db, evidenceTable, tendersTable } from "@workspace/db";
 import { ExtractTenderRequirementsBody, ExtractTenderRequirementsParams, ExtractTenderRequirementsResponse } from "@workspace/api-zod";
 import { requireAuth, ownedTender, tenderView } from "../lib/tender-data";
-import { extractTenderRequirements, InvalidSectionOutputError, requirementsInFlight, sameTenderSources } from "../lib/tender-requirements";
+import { InvalidSectionOutputError, requirementsInFlight } from "../lib/tender-requirements";
 import { OcrReviewRequiredError } from "../lib/document-extractions";
-import { appendRequirementDrafts } from "../lib/requirement-items";
+import { queueRequirements, processRequirements } from "../lib/requirements-jobs";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -19,20 +17,8 @@ router.post("/tenders/:tenderId/requirements/extract", async (req, res): Promise
   const tender = await ownedTender(params.data.tenderId, owner);
   if (!tender) { res.status(404).json({ error: "Tender not found." }); return; }
   if (requirementsInFlight.has(owner)) { res.status(429).json({ error: "A requirements extraction is already running. Please wait." }); return; }
-  requirementsInFlight.add(owner);
   try {
-    const files = await db.select().from(evidenceTable).where(and(eq(evidenceTable.tenderId, tender.id), eq(evidenceTable.category, "tender_rfp")));
-    const extraction = await extractTenderRequirements(files);
-    const currentFiles = await db.select().from(evidenceTable).where(eq(evidenceTable.tenderId, tender.id));
-    if (!sameTenderSources(currentFiles, extraction)) {
-      res.status(409).json({ error: "Tender documents changed during extraction. Run extraction again against the current documents." }); return;
-    }
-    const updated = await db.transaction(async tx => {
-      await appendRequirementDrafts(tx, tender.id, owner, extraction.id, extraction.items ?? []);
-      const [row] = await tx.update(tendersTable).set({ requirementsExtraction: extraction, updatedAt: new Date() })
-        .where(and(eq(tendersTable.id, tender.id), eq(tendersTable.ownerId, owner))).returning();
-      return row;
-    });
+    const updated = await queueRequirements(tender.id, owner);
     if (!updated) { res.status(404).json({ error: "Tender was removed during extraction." }); return; }
     res.json(ExtractTenderRequirementsResponse.parse(await tenderView(updated)));
   } catch (error) {
@@ -42,6 +28,21 @@ router.post("/tenders/:tenderId/requirements/extract", async (req, res): Promise
       ...(error && typeof error === "object" && "status" in error && typeof error.status === "number" ? { providerStatus: error.status } : {}),
     }, "Tender requirement extraction failed");
     res.status(error instanceof OcrReviewRequiredError ? 409 : 400).json({ error: error instanceof Error ? error.message : "Requirements extraction failed. Your uploaded documents and working brief remain unchanged." });
-  } finally { requirementsInFlight.delete(owner); }
+  }
+});
+router.post("/tenders/:tenderId/requirements/process", async (req, res): Promise<void> => {
+  const params = ExtractTenderRequirementsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid tender ID." }); return; }
+  const owner = req.user!.id;
+  if (!await ownedTender(params.data.tenderId, owner)) { res.status(404).json({ error: "Tender not found." }); return; }
+  try {
+    await processRequirements(params.data.tenderId, owner);
+    const updated = await ownedTender(params.data.tenderId, owner);
+    if (!updated) { res.status(404).json({ error: "Tender was removed." }); return; }
+    res.json(ExtractTenderRequirementsResponse.parse(await tenderView(updated)));
+  } catch (error) {
+    req.log.warn({ errorName: error instanceof Error ? error.name : "Error" }, "Requirements checkpoint failed");
+    res.status(400).json({ error: "Could not process the next section. Saved progress is unchanged; reload to resume." });
+  }
 });
 export default router;

@@ -24,6 +24,19 @@ export interface RequirementsExtraction {
   extractedAt: string;
   reviewedAt: string | null;
   items?: import("./requirement-items").RequirementDraft[];
+  job?: {
+    id: string;
+    status: "processing" | "failed" | "completed";
+    completedSections: number;
+    totalSections: number;
+    error: string | null;
+    sourceFiles: { id: string; name: string }[];
+    // Internal durable checkpoints, never included in public tender views.
+    sections?: { label: string; text: string; depth: number; attempts: number }[];
+    results?: { label: string; result: { summary: string; requirements: string; warnings: string[]; items: import("./requirement-items").RequirementDraft[] } }[];
+    token?: string | null;
+    leaseUntil?: string | null;
+  };
 }
 
 export const tendersTable = pgTable("tenders", {

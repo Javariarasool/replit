@@ -1535,6 +1535,80 @@ export const useExtractTenderRequirements = <TError = ErrorType<ErrorResponse>,
       return useMutation(getExtractTenderRequirementsMutationOptions(options));
     }
 
+export const getProcessTenderRequirementsUrl = (tenderId: string,) => {
+
+
+
+
+  return `/api/tenders/${tenderId}/requirements/process`
+}
+
+/**
+ * @summary Advance one section of an explicitly consented extraction job
+ */
+export const processTenderRequirements = async (tenderId: string, options?: Parameters<typeof customFetch>[1]): Promise<Tender> => {
+
+  return customFetch<Tender>(getProcessTenderRequirementsUrl(tenderId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getProcessTenderRequirementsMutationKey = () => ['processTenderRequirements'] as const;
+
+export const getProcessTenderRequirementsMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof processTenderRequirements>>, TError,ProcessTenderRequirementsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof processTenderRequirements>>, TError,ProcessTenderRequirementsMutationVariables, TContext> => {
+
+const mutationKey = getProcessTenderRequirementsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof processTenderRequirements>>, ProcessTenderRequirementsMutationVariables> = (props) => {
+          const {tenderId} = props ?? {};
+
+          return  processTenderRequirements(tenderId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProcessTenderRequirementsMutationResult = NonNullable<Awaited<ReturnType<typeof processTenderRequirements>>>
+
+    export type ProcessTenderRequirementsMutationError = ErrorType<ErrorResponse>
+    export type ProcessTenderRequirementsMutationVariables = {tenderId: string}
+
+    /**
+ * @summary Advance one section of an explicitly consented extraction job
+ */
+export const useProcessTenderRequirements = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof processTenderRequirements>>, TError,ProcessTenderRequirementsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof processTenderRequirements>>,
+        TError,
+        ProcessTenderRequirementsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getProcessTenderRequirementsMutationOptions(options));
+    }
+
 export const getListRequirementItemsUrl = (tenderId: string,) => {
 
 
