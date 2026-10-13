@@ -4,5 +4,6 @@
 - [OCR privacy boundary](ocr-privacy.md) — local recognition avoids image-provider consent; draft consent must never imply permission to send original images remotely.
 - [Post-merge stale listeners](post-merge-listeners.md) — older app processes can survive reconciliation; inspect actual port owners before retrying failed workflows.
 - [OCR execution budget](ocr-execution.md) — limit native threads as well as concurrent jobs; default engine parallelism slowed small scans under the CPU quota.
+- [Production document reading](production-document-reading.md) — declare native PDF utilities explicitly; distinguish repeated logos/watermarks from actual scans.
 - [Live web research](live-web-research.md) — search rejects strict JSON mode; validate prompt-requested JSON and retain provider-citation grounding.
 - [Company evidence validity](company-evidence-policy.md) — per-tender review, inclusive validity dates, and retained tender snapshots when library evidence is removed.

@@ -6,11 +6,35 @@ import { join } from "node:path";
 import { PDFParse } from "pdf-parse";
 import type { DocumentExtraction } from "@workspace/db";
 import { extractDocumentText, MAX_DOCUMENT_BYTES } from "./documents";
+import { ocrTool } from "./native-ocr-tools";
 
 const exec = promisify(execFile);
 const MAX_PAGES = 30;
 const MAX_TEXT = 500000;
 const MAX_SOURCE_TEXT = 1000000;
+
+export function substantialRaster(width: number, height: number, xPpi: number, yPpi: number, pageWidth: number, pageHeight: number): boolean {
+  if (width < 600 || height < 600) return false;
+  if (![xPpi, yPpi, pageWidth, pageHeight].every(v => Number.isFinite(v) && v > 0)) return true;
+  // Pixel dimensions alone misclassify high-resolution logos repeated across
+  // long digitized tenders. Measure their physical coverage on the page.
+  return (width * 72 / xPpi) * (height * 72 / yPpi) / (pageWidth * pageHeight) >= 0.25;
+}
+
+export function repeatedGraphics(images: string[][], readablePages: Set<number>): Set<string> {
+  const occurrences = new Map<string, Set<number>>();
+  for (const columns of images) {
+    const page = Number(columns[0]);
+    if (columns[2] !== "image" || !readablePages.has(page) || !columns[10] || !columns[11]) continue;
+    const key = `${columns[10]}:${columns[11]}`;
+    const pages = occurrences.get(key) ?? new Set<number>();
+    pages.add(page);
+    occurrences.set(key, pages);
+  }
+  // A shared PDF image object repeated on several genuinely readable pages
+  // is a logo/watermark, not a distinct page scan. Sparse pages still use OCR.
+  return new Set([...occurrences].filter(([, pages]) => pages.size >= 3).map(([key]) => key));
+}
 
 // Engine scores measure recognition quality, not factual correctness.
 export function parseTsv(tsv: string): { text: string; confidence: number | null } {
@@ -45,17 +69,21 @@ export async function extractWithOcr(buffer: Buffer, contentType: string, name: 
       const parser = new PDFParse({ data: new Uint8Array(buffer) });
       try {
         const text = await parser.getText();
+        const info = await parser.getInfo({ parsePageInfo: true });
         result.sourceText = text.text;
         pageNumbers = text.pages.filter(page => page.text.trim().length < 40).map(page => page.num);
         // A scan may contain embedded headers/footer text. Inspect raster dimensions
         // too, rather than treating a small text layer as the complete page.
-        const { stdout } = await exec("pdfimages", ["-list", input], { timeout: 30000, maxBuffer: 1024 * 1024 });
-        for (const row of stdout.split("\n").slice(2)) {
-          const columns = row.trim().split(/\s+/);
-          if (columns[2] === "image" && Number(columns[3]) >= 600 && Number(columns[4]) >= 600) pageNumbers.push(Number(columns[0]));
+        const { stdout } = await exec(ocrTool("pdfimages"), ["-list", input], { timeout: 30000, maxBuffer: 1024 * 1024 });
+        const images = stdout.split("\n").slice(2).map(row => row.trim().split(/\s+/));
+        const graphics = repeatedGraphics(images, new Set(text.pages.filter(p => p.text.trim().length >= 400).map(p => p.num)));
+        for (const columns of images) {
+          if (graphics.has(`${columns[10]}:${columns[11]}`)) continue;
+          const page = info.pages.find(p => p.pageNumber === Number(columns[0]));
+          if (columns[2] === "image" && substantialRaster(Number(columns[3]), Number(columns[4]), Number(columns[12]), Number(columns[13]), page?.width ?? 0, page?.height ?? 0)) pageNumbers.push(Number(columns[0]));
         }
         pageNumbers = [...new Set(pageNumbers)].sort((a, b) => a - b);
-        if (pageNumbers.length && text.total > MAX_PAGES) throw new Error(`OCR is limited to ${MAX_PAGES} PDF pages. Split this document; no OCR text can be used yet.`);
+        if (pageNumbers.length > MAX_PAGES) throw new Error(`OCR is limited to ${MAX_PAGES} scanned pages per document. Split this document; no OCR text can be used yet.`);
       } finally { await parser.destroy(); }
     } else if (!image) {
       result.sourceText = await extractDocumentText(buffer, contentType, name);
@@ -66,12 +94,12 @@ export async function extractWithOcr(buffer: Buffer, contentType: string, name: 
       let imagePath = input;
       if (pdf) {
         const prefix = join(directory!, `page-${page}`);
-        await exec("pdftoppm", ["-f", String(page), "-l", String(page), "-singlefile", "-scale-to", "2400", "-png", input, prefix], { timeout: 30000, maxBuffer: 1024 * 1024 });
+        await exec(ocrTool("pdftoppm"), ["-f", String(page), "-l", String(page), "-singlefile", "-scale-to", "2400", "-png", input, prefix], { timeout: 30000, maxBuffer: 1024 * 1024 });
         imagePath = `${prefix}.png`;
       }
       // Bound native parallelism: the service already permits concurrent OCR
       // jobs, and OpenMP contention can make a small scan exceed its deadline.
-      const { stdout } = await exec("tesseract", [imagePath, "stdout", "-l", "eng", "tsv"], {
+      const { stdout } = await exec(ocrTool("tesseract"), [imagePath, "stdout", "-l", "eng", "tsv"], {
         timeout: 60000, maxBuffer: 8 * 1024 * 1024,
         env: { ...process.env, OMP_THREAD_LIMIT: "1" },
       });

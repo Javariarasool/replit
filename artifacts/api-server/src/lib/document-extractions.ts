@@ -7,10 +7,15 @@ import { MAX_DOCUMENT_BYTES } from "./documents";
 const storage = new ObjectStorageService();
 const active = new Map<string, Promise<DocumentExtraction>>();
 
+export function shouldRetryExtraction(extraction: DocumentExtraction, requested = false): boolean {
+  return extraction.status === "failed" && (requested ||
+    /spawn (?:pdfimages|pdftoppm|tesseract) ENOENT|required PDF\/OCR tool .* unavailable/i.test(extraction.error ?? ""));
+}
+
 export async function ensureExtraction(objectPath: string, ownerId: string, retry = false): Promise<DocumentExtraction> {
   const [upload] = await db.select().from(uploadsTable).where(and(eq(uploadsTable.objectPath, objectPath), eq(uploadsTable.ownerId, ownerId)));
   if (!upload) throw new Error("Document not found.");
-  if (upload.extraction && !(retry && upload.extraction.status === "failed")) return upload.extraction;
+  if (upload.extraction && !shouldRetryExtraction(upload.extraction, retry)) return upload.extraction;
   const key = `${ownerId}:${objectPath}`;
   const existing = active.get(key);
   if (existing) return existing;

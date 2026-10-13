@@ -6,8 +6,8 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
-import { extractWithOcr, parseTsv } from "./ocr";
-import { draftingText } from "./document-extractions";
+import { extractWithOcr, parseTsv, substantialRaster, repeatedGraphics } from "./ocr";
+import { draftingText, shouldRetryExtraction } from "./document-extractions";
 
 const exec = promisify(execFile);
 const directory = process.env.OCR_FIXTURE_DIR ?? await mkdtemp(join(tmpdir(), "ocr-tests-"));
@@ -56,6 +56,27 @@ test("TSV confidence excludes non-word rows and preserves line grouping", () => 
   assert.equal(parsed.text, "Hello world");
   assert.equal(parsed.confidence, 85);
 });
+test("missing deployment tools do not permanently cache a failed import", () => {
+  const failed = { sourceText: "", ocrText: "", confidence: null, pages: [], status: "failed" as const, error: "spawn pdfimages ENOENT", reviewedText: null, reviewedAt: null, engine: "Local Tesseract (English)" };
+  assert.equal(shouldRetryExtraction(failed), true);
+  assert.equal(shouldRetryExtraction({ ...failed, error: "Invalid PDF" }), false);
+  assert.equal(shouldRetryExtraction({ ...failed, error: "Invalid PDF" }, true), true);
+  assert.equal(shouldRetryExtraction({ ...failed, status: "verified" }, true), false);
+  assert.equal(shouldRetryExtraction({ ...failed, status: "needs_review" }, true), false);
+});
+test("high-resolution logos do not count as whole-page scans", () => {
+  assert.equal(substantialRaster(800, 800, 300, 300, 600, 800), false);
+  assert.equal(substantialRaster(1800, 2400, 216, 216, 600, 800), true);
+  assert.equal(substantialRaster(1800, 900, 216, 216, 600, 300), true);
+  assert.equal(substantialRaster(800, 800, 0, 0, 600, 800), true);
+});
+test("shared watermarks are excluded only with readable pages, not scans", () => {
+  const image = (page: number, ref: number) => [String(page), "0", "image", "800", "800", "rgb", "3", "8", "image", "no", String(ref), "0"];
+  const rows = [image(1, 100), image(2, 100), image(3, 100), image(4, 200)];
+  assert.deepEqual([...repeatedGraphics(rows, new Set([1, 2, 3]))], ["100:0"]);
+  assert.equal(repeatedGraphics(rows, new Set()).size, 0);
+  assert.equal(repeatedGraphics(rows, new Set([1, 2])).size, 0);
+});
 test("text PDF and plain text remain native source, not OCR", async () => {
   const native = await extractWithOcr(sourcePdf, "application/pdf", "source.pdf");
   assert.equal(native.status, "not_needed");
@@ -74,7 +95,7 @@ test("scanned PDF has separate OCR and cannot draft until verified", async () =>
   const verified = { ...scan, status: "verified" as const, reviewedText: "Reviewed quantity 25 units" };
   assert.match(draftingText(verified, "scanned.pdf"), /Reviewed quantity 25/);
   assert.doesNotMatch(draftingText(verified, "scanned.pdf"), /quantity 24 units/i);
-  assert.doesNotMatch(draftingText({ ...scan, status: "rejected" }, "scanned.pdf"), /quantity 24/);
+  assert.throws(() => draftingText({ ...scan, status: "rejected" }, "scanned.pdf"), /Verify/);
   assert.match(scan.ocrText, /quantity 24/); // review never mutates raw OCR
 });
 test("document image OCR is local and review gated", async () => {
