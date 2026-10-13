@@ -26,6 +26,19 @@ async function buildAll() {
       throw new Error(`Required OCR dependency ${tool} is missing or unusable. Install poppler-utils and tesseract before publishing.`);
     }
   }
+  try {
+    const languages = execFileSync(ocrTools.tesseract, ["--list-langs"], { encoding: "utf8" });
+    const installed = new Set(languages.split(/\r?\n/).map((line) => line.trim()));
+    const requiredLanguages = ["eng", "urd"];
+    const missing = requiredLanguages.filter((language) => !installed.has(language));
+    if (missing.length) {
+      throw new Error(`Required Tesseract language data is missing: ${missing.join(", ")}.`);
+    }
+  } catch (error) {
+    throw new Error(
+      `Required Tesseract language data is missing or unusable. Install the supported English and Urdu language data before publishing. ${error instanceof Error ? error.message : ""}`,
+    );
+  }
 
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],

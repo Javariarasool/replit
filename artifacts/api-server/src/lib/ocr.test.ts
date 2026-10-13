@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { extractWithOcr, parseTsv, substantialRaster, repeatedGraphics } from "./ocr";
+import { ocrTool, type OcrTool } from "./native-ocr-tools";
 import { draftingText, shouldRetryExtraction } from "./document-extractions";
 
 const exec = promisify(execFile);
@@ -35,8 +36,9 @@ const sourcePdf = pdf([
   Buffer.from(`<< /Length ${commands.length} >>\nstream\n${commands}\nendstream`),
 ]);
 await writeFile(join(directory, "source.pdf"), sourcePdf);
-await exec("pdftoppm", ["-singlefile", "-scale-to", "1800", join(directory, "source.pdf"), join(directory, "scan")]);
-await exec("pdftoppm", ["-singlefile", "-scale-to", "1800", "-png", join(directory, "source.pdf"), join(directory, "scan")]);
+const fixturePdfToPpm = process.env.OCR_FIXTURE_PDFTOPPM ?? ocrTool("pdftoppm");
+await exec(fixturePdfToPpm, ["-singlefile", "-scale-to", "1800", join(directory, "source.pdf"), join(directory, "scan")]);
+await exec(fixturePdfToPpm, ["-singlefile", "-scale-to", "1800", "-png", join(directory, "source.pdf"), join(directory, "scan")]);
 const ppm = await readFile(join(directory, "scan.ppm"));
 const header = ppm.toString("ascii", 0, 100).match(/^P6\s+(\d+)\s+(\d+)\s+255\s/)!;
 assert.ok(header);
@@ -97,6 +99,20 @@ test("scanned PDF has separate OCR and cannot draft until verified", async () =>
   assert.doesNotMatch(draftingText(verified, "scanned.pdf"), /quantity 24 units/i);
   assert.throws(() => draftingText({ ...scan, status: "rejected" }, "scanned.pdf"), /Verify/);
   assert.match(scan.ocrText, /quantity 24/); // review never mutates raw OCR
+});
+test("production smoke fails closed when a required PDF/OCR tool is missing", {
+  skip: !process.env.OCR_SMOKE_MISSING_TOOL,
+}, async () => {
+  const missingTool = process.env.OCR_SMOKE_MISSING_TOOL as OcrTool;
+  const result = await extractWithOcr(scannedPdf, "application/pdf", "scanned.pdf");
+  assert.equal(result.status, "failed");
+  assert.match(result.error ?? "", new RegExp(`Required PDF/OCR tool ${missingTool} is unavailable`));
+  assert.equal(result.sourceText, "");
+  assert.equal(result.ocrText, "");
+  assert.deepEqual(result.pages, []);
+  assert.equal(result.confidence, null);
+  assert.equal(result.reviewedText, null);
+  assert.throws(() => draftingText(result, "scanned.pdf"), /Extraction failed/);
 });
 test("document image OCR is local and review gated", async () => {
   const image = await extractWithOcr(await readFile(join(directory, "scan.png")), "image/png", "scan.png");
