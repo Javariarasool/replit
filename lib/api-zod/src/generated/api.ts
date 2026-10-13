@@ -1908,6 +1908,26 @@ export const RequestUploadUrlResponse = zod.object({
 
 
 /**
+ * @summary List the signed-in owner's document reading metadata without document content
+ */
+export const ListDocumentReadingActivityResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "objectPath": zod.string(),
+  "status": zod.enum(['queued', 'running', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "completedPages": zod.number().int(),
+  "totalPages": zod.number().int().nullable(),
+  "queuedAt": zod.string(),
+  "finishedAt": zod.string().nullable(),
+  "reviewLinks": zod.array(zod.object({
+  "label": zod.string(),
+  "href": zod.string()
+}))
+})
+export const ListDocumentReadingActivityResponse = zod.array(ListDocumentReadingActivityResponseItem)
+
+
+/**
  * @summary Read separate source text and local OCR review state
  */
 

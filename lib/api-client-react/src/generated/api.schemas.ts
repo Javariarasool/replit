@@ -5,6 +5,38 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type DocumentReadingActivityStatus = typeof DocumentReadingActivityStatus[keyof typeof DocumentReadingActivityStatus];
+
+
+export const DocumentReadingActivityStatus = {
+  queued: 'queued',
+  running: 'running',
+  not_needed: 'not_needed',
+  needs_review: 'needs_review',
+  verified: 'verified',
+  rejected: 'rejected',
+  failed: 'failed',
+} as const;
+
+export interface DocumentReadingLink {
+  label: string;
+  href: string;
+}
+
+export interface DocumentReadingActivity {
+  id: string;
+  name: string;
+  objectPath: string;
+  status: DocumentReadingActivityStatus;
+  completedPages: number;
+  /** @nullable */
+  totalPages: number | null;
+  queuedAt: string;
+  /** @nullable */
+  finishedAt: string | null;
+  reviewLinks: DocumentReadingLink[];
+}
+
 /**
  * Local recognition language. Omit to retain an existing extraction's language, or use English for a new extraction.
  */

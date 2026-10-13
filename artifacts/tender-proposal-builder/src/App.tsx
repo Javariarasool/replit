@@ -1,6 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { Link, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
+import { Link, Route, Router as WouterRouter, Switch, useLocation, useParams, useSearch } from 'wouter';
 import { notifySessionExpired, useAuth } from '@workspace/replit-auth-web';
 import {
   useGetDashboardSummary, useListTenders, useCreateTender, useGetTender, useUpdateTender, useDeleteTender,
@@ -31,6 +31,7 @@ import ProposalEditor from '@/pages/proposal-editor';
 import { RequirementsPanel } from '@/components/requirements-panel';
 import { DocumentReview, OCR_NOTE } from '@/components/document-review';
 import CompanyEvidencePage, { useCompanyEvidenceRefresh } from '@/pages/company-evidence';
+import { ReadingActivity, ReadingReviewPage } from '@/components/reading-activity';
 
 function isUnauthorized(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
@@ -104,8 +105,8 @@ function AppShell({ children, auth }: { children: ReactNode; auth: ReturnType<ty
     {mobileMenu && <button className="fixed inset-0 z-30 bg-black/30 md:hidden" aria-label="Close navigation" onClick={() => setMobileMenu(false)}/>}
     <div className="md:pl-[248px]">
       <header className="sticky top-0 z-20 flex h-[64px] items-center justify-between border-b border-border/80 bg-background/90 px-5 backdrop-blur-md md:px-9">
-        <div className="flex items-center gap-3"><button onClick={() => setMobileMenu(v => !v)} className="rounded-md p-2 hover:bg-secondary md:hidden" aria-label="Open navigation" data-testid="button-menu"><Menu size={19}/></button><span className="font-mono text-[10px] uppercase tracking-[.16em] text-muted-foreground">TENDER OPERATIONS</span></div>
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-semibold text-muted-foreground"><span className="size-1.5 rounded-full bg-emerald-700"/>Private workspace</div>
+        <div className="flex items-center gap-3"><button onClick={() => setMobileMenu(v => !v)} className="rounded-md p-2 hover:bg-secondary md:hidden" aria-label="Open navigation" data-testid="button-menu"><Menu size={19}/></button><span className="hidden font-mono text-[10px] uppercase tracking-[.16em] text-muted-foreground lg:inline">TENDER OPERATIONS</span></div>
+        <ReadingActivity key={auth.user!.id} userId={auth.user!.id}/>
       </header>
       <main className="mx-auto max-w-[1440px] px-5 pb-16 pt-8 md:px-9 md:pt-10">
         {auth.recoveredFromSessionExpiry && <div role="status" className="mb-5 rounded-xl border border-amber-900/20 bg-amber-900/[.06] p-4 text-sm text-amber-950">You’re signed in again. Interrupted uploads or extraction were not retried; review your tender and explicitly start anything you still need.</div>}
@@ -186,7 +187,11 @@ function TenderWorkspace({ userId, sessionExpired }: { userId: string; sessionEx
     queryKey: getGetDocumentExtractionQueryKey({ objectPath: pendingReadPath ?? '' }),
     enabled: !!pendingReadPath, refetchInterval: pendingReadPath ? 2000 : false,
   } });
-  const addSource = useAddVendorSource(); const reviewSource = useReviewVendorSource(); const [tab, setTab] = useState<'requirements' | 'evidence' | 'sources' | 'proposals'>('requirements');
+  const addSource = useAddVendorSource(); const reviewSource = useReviewVendorSource();
+  const search = useSearch();
+  const requestedTab = new URLSearchParams(search).get('tab');
+  const tab = requestedTab === 'evidence' || requestedTab === 'sources' || requestedTab === 'proposals' ? requestedTab : 'requirements';
+  const setTab = (next: 'requirements' | 'evidence' | 'sources' | 'proposals') => navigate(`/tenders/${id}?tab=${next}`, { replace: true });
   const [dialog, setDialog] = useState<DialogName>(null); const [deleteConfirm, setDeleteConfirm] = useState(false); const [error, setError] = useState('');
   const tender = detail.data;
   const requirementItems = useListRequirementItems(id);
@@ -432,7 +437,7 @@ function ProposalPanel({ tender, proposals, loading, failed, onRetry, onGenerate
 function Router() {
   const [location] = useLocation();
   const auth = useAuth();
-  return <AppShell auth={auth}><ErrorBoundary resetKey={location}><Switch><Route path="/" component={Dashboard}/><Route path="/tenders/:tenderId" component={() => <TenderWorkspace userId={auth.user?.id ?? ''} sessionExpired={auth.isSessionExpired}/ >}/><Route path="/company-evidence" component={CompanyEvidencePage}/><Route path="/library" component={LibraryPage}/><Route path="/library/:entryId" component={LibraryEntryPage}/><Route path="/proposals/:proposalId" component={ProposalEditor}/><Route component={NotFound}/></Switch></ErrorBoundary></AppShell>;
+  return <AppShell auth={auth}><ErrorBoundary resetKey={location}><Switch><Route path="/" component={Dashboard}/><Route path="/tenders/:tenderId" component={() => <TenderWorkspace userId={auth.user?.id ?? ''} sessionExpired={auth.isSessionExpired}/ >}/><Route path="/company-evidence" component={CompanyEvidencePage}/><Route path="/library" component={LibraryPage}/><Route path="/library/:entryId" component={LibraryEntryPage}/><Route path="/readings/review" component={ReadingReviewPage}/><Route path="/proposals/:proposalId" component={ProposalEditor}/><Route component={NotFound}/></Switch></ErrorBoundary></AppShell>;
 }
 function App() {
   return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router/></WouterRouter><Toaster/></TooltipProvider></QueryClientProvider>;

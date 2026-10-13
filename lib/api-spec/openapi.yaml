@@ -717,6 +717,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UploadUrlResponse"
+  /documents/activity:
+    get:
+      operationId: listDocumentReadingActivity
+      tags: [evidence]
+      summary: List the signed-in owner's document reading metadata without document content
+      responses:
+        "200":
+          description: Persisted reading activity and links to human review screens. Does not enqueue or authorize processing.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DocumentReadingActivity" }
+        "401":
+          $ref: "#/components/responses/Error"
   /documents/extraction:
     get:
       operationId: getDocumentExtraction
@@ -785,6 +800,27 @@ components:
       required: true
       schema: { type: string, format: uuid }
   schemas:
+    DocumentReadingActivity:
+      type: object
+      required: [id, name, objectPath, status, completedPages, totalPages, queuedAt, finishedAt, reviewLinks]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        objectPath: { type: string }
+        status: { type: string, enum: [queued, running, not_needed, needs_review, verified, rejected, failed] }
+        completedPages: { type: integer }
+        totalPages: { type: [integer, "null"] }
+        queuedAt: { type: string }
+        finishedAt: { type: [string, "null"] }
+        reviewLinks:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentReadingLink" }
+    DocumentReadingLink:
+      type: object
+      required: [label, href]
+      properties:
+        label: { type: string }
+        href: { type: string }
     ExtractionInput:
       type: object
       required: [objectPath]

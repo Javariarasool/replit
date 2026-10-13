@@ -1,12 +1,16 @@
 import { Router, type IRouter } from "express";
 import { and, eq } from "drizzle-orm";
 import { db, uploadsTable } from "@workspace/db";
-import { GetDocumentExtractionQueryParams, ExtractUploadedDocumentBody, ReviewDocumentExtractionBody, GetDocumentExtractionResponse, ExtractUploadedDocumentResponse, ReviewDocumentExtractionResponse } from "@workspace/api-zod";
+import { GetDocumentExtractionQueryParams, ExtractUploadedDocumentBody, ReviewDocumentExtractionBody, GetDocumentExtractionResponse, ExtractUploadedDocumentResponse, ReviewDocumentExtractionResponse, ListDocumentReadingActivityResponse } from "@workspace/api-zod";
 import { requireAuth } from "../lib/tender-data";
 import { ensureExtraction, extractionPending } from "../lib/document-extractions";
+import { listDocumentReadingActivity } from "../lib/document-reading-activity";
 
 const router: IRouter = Router();
 router.use(requireAuth);
+router.get("/documents/activity", async (req, res): Promise<void> => {
+  res.json(ListDocumentReadingActivityResponse.parse(await listDocumentReadingActivity(req.user!.id)));
+});
 router.get("/documents/extraction", async (req, res): Promise<void> => {
   const query = GetDocumentExtractionQueryParams.safeParse(req.query);
   if (!query.success) { res.status(400).json({ error: "Provide the document path." }); return; }

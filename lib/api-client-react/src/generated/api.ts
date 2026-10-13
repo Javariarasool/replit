@@ -28,6 +28,7 @@ import type {
   CompanyEvidenceMetadata,
   DashboardSummary,
   DocumentExtraction,
+  DocumentReadingActivity,
   ErrorEnvelope,
   ErrorResponse,
   Evidence,
@@ -3570,6 +3571,83 @@ export const useRequestUploadUrl = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getRequestUploadUrlMutationOptions(options));
     }
+
+export const getListDocumentReadingActivityUrl = () => {
+
+
+
+
+  return `/api/documents/activity`
+}
+
+/**
+ * @summary List the signed-in owner's document reading metadata without document content
+ */
+export const listDocumentReadingActivity = async ( options?: Parameters<typeof customFetch>[1]): Promise<DocumentReadingActivity[]> => {
+
+  return customFetch<DocumentReadingActivity[]>(getListDocumentReadingActivityUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDocumentReadingActivityQueryKey = () => {
+    return [
+    `/api/documents/activity`
+    ] as const;
+    }
+
+
+export const getListDocumentReadingActivityQueryOptions = <TData = Awaited<ReturnType<typeof listDocumentReadingActivity>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDocumentReadingActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDocumentReadingActivityQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDocumentReadingActivity>>> = ({ signal }) => listDocumentReadingActivity({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDocumentReadingActivity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDocumentReadingActivityQueryResult = NonNullable<Awaited<ReturnType<typeof listDocumentReadingActivity>>>
+export type ListDocumentReadingActivityQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary List the signed-in owner's document reading metadata without document content
+ */
+
+export function useListDocumentReadingActivity<TData = Awaited<ReturnType<typeof listDocumentReadingActivity>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDocumentReadingActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDocumentReadingActivityQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetDocumentExtractionUrl = (params: GetDocumentExtractionParams,) => {
   const normalizedParams = new URLSearchParams();
