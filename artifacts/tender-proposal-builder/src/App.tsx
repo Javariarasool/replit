@@ -1,7 +1,7 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Link, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
-import { useAuth } from '@workspace/replit-auth-web';
+import { notifySessionExpired, useAuth } from '@workspace/replit-auth-web';
 import {
   useGetDashboardSummary, useListTenders, useCreateTender, useGetTender, useUpdateTender, useDeleteTender,
   useListTenderEvidence, useAddTenderEvidence, useDeleteEvidence, useListVendorSources, useAddVendorSource,
@@ -32,7 +32,18 @@ import { RequirementsPanel } from '@/components/requirements-panel';
 import { DocumentReview, OCR_NOTE } from '@/components/document-review';
 import CompanyEvidencePage, { useCompanyEvidenceRefresh } from '@/pages/company-evidence';
 
-const queryClient = new QueryClient();
+function isUnauthorized(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  if ('status' in error && error.status === 401) return true;
+  return 'response' in error && !!error.response && typeof error.response === 'object' &&
+    'status' in error.response && error.response.status === 401;
+}
+
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: error => { if (isUnauthorized(error)) notifySessionExpired(); } }),
+  mutationCache: new MutationCache({ onError: error => { if (isUnauthorized(error)) notifySessionExpired(); } }),
+  defaultOptions: { queries: { retry: (failureCount, error) => !isUnauthorized(error) && failureCount < 3 } },
+});
 const categories = [
   ['tender_rfp', 'Tender / RFP'], ['previous_proposal', 'Previous proposal'], ['company_profile', 'Company profile'],
   ['certification', 'Certifications'], ['cv_reference', 'CV / project references'], ['technical_bom', 'Bill of materials'],
@@ -42,11 +53,24 @@ type DialogName = 'tender' | 'source' | 'research' | 'generate' | null;
 
 const categoryName = (value: string) => categories.find(([id]) => id === value)?.[1] ?? value;
 
-function AppShell({ children }: { children: ReactNode }) {
-  const auth = useAuth();
+function AppShell({ children, auth }: { children: ReactNode; auth: ReturnType<typeof useAuth> }) {
   const [location] = useLocation();
   const [mobileMenu, setMobileMenu] = useState(false);
+  useEffect(() => {
+    if (auth.isSessionExpired) queryClient.clear();
+  }, [auth.isSessionExpired]);
   if (auth.isLoading) return <div className="grid min-h-[100dvh] place-items-center bg-background"><div className="w-64 space-y-3"><div className="h-5 w-40 animate-pulse rounded bg-secondary"/><div className="h-3 w-full animate-pulse rounded bg-secondary"/></div></div>;
+  if (auth.isSessionExpired) return <main className="app-grain grid min-h-[100dvh] place-items-center bg-background p-6">
+    <section className="enter w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
+      <div className="bg-primary px-8 pb-9 pt-8 text-primary-foreground">
+        <div className="flex items-center gap-3"><div className="grid size-11 place-items-center rounded-xl bg-primary-foreground/10"><ClipboardList size={23}/></div><div><p className="text-sm font-bold tracking-wide">Tender Desk</p><p className="text-xs opacity-65">Session ended</p></div></div>
+        <h1 className="mt-10 max-w-sm font-[Manrope] text-3xl font-bold leading-tight">Sign in to continue your tender work.</h1>
+      </div>
+      <div className="p-8"><p className="text-sm leading-6 text-muted-foreground">Your tender page will reopen after sign-in. Unsaved brief edits are kept in this browser when possible. Interrupted uploads or extraction are not repeated automatically; review the page and choose what to retry.</p>
+        <Button onClick={auth.login} className="mt-6 w-full" data-testid="button-session-login">Sign in and return to this tender <ArrowRight size={16}/></Button>
+      </div>
+    </section>
+  </main>;
   if (!auth.isAuthenticated) return <main className="app-grain grid min-h-[100dvh] place-items-center bg-background p-6">
     <section className="enter w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
       <div className="bg-primary px-8 pb-10 pt-8 text-primary-foreground">
@@ -83,7 +107,10 @@ function AppShell({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-3"><button onClick={() => setMobileMenu(v => !v)} className="rounded-md p-2 hover:bg-secondary md:hidden" aria-label="Open navigation" data-testid="button-menu"><Menu size={19}/></button><span className="font-mono text-[10px] uppercase tracking-[.16em] text-muted-foreground">TENDER OPERATIONS</span></div>
         <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-semibold text-muted-foreground"><span className="size-1.5 rounded-full bg-emerald-700"/>Private workspace</div>
       </header>
-      <main className="mx-auto max-w-[1440px] px-5 pb-16 pt-8 md:px-9 md:pt-10">{children}</main>
+      <main className="mx-auto max-w-[1440px] px-5 pb-16 pt-8 md:px-9 md:pt-10">
+        {auth.recoveredFromSessionExpiry && <div role="status" className="mb-5 rounded-xl border border-amber-900/20 bg-amber-900/[.06] p-4 text-sm text-amber-950">You’re signed in again. Interrupted uploads or extraction were not retried; review your tender and explicitly start anything you still need.</div>}
+        {children}
+      </main>
     </div>
   </div>;
 }
@@ -147,7 +174,7 @@ function TenderRow({ tender, index }: { tender: Tender; index: number }) {
     <div><StatusPill value={tender.status}/></div><div className="flex gap-3 text-[11px] text-muted-foreground"><span>{tender.evidenceCount} evidence</span><span>{tender.proposalCount} drafts</span><ArrowRight className="ml-auto hidden text-primary transition-transform group-hover:translate-x-1 md:block" size={15}/></div>
   </Link>;
 }
-function TenderWorkspace() {
+function TenderWorkspace({ userId, sessionExpired }: { userId: string; sessionExpired: boolean }) {
   const params = useParams<{ tenderId: string }>(); const id = params.tenderId ?? '';
   const [, navigate] = useLocation();
   const detail = useGetTender(id); const evidenceQuery = useListTenderEvidence(id); const sourceQuery = useListVendorSources(id); const proposalsQuery = useListProposals(id);
@@ -169,9 +196,9 @@ function TenderWorkspace() {
     void qc.invalidateQueries({ queryKey: getListVendorSourcesQueryKey(id) }); void qc.invalidateQueries({ queryKey: getListProposalsQueryKey(id) });
     void qc.invalidateQueries({ queryKey: getListRequirementItemsQueryKey(id) });
   };
-  const runExtraction = () => { setTab('requirements'); setRequirementError(''); extract.mutate({ tenderId: id, data: { aiConsent: true } }, { onSuccess: refresh, onError: e => { refresh(); setRequirementError(`Your uploaded documents and saved brief are unchanged. ${errorText(e)}`); } }); };
+  const runExtraction = () => { if (sessionExpired) return; setTab('requirements'); setRequirementError(''); extract.mutate({ tenderId: id, data: { aiConsent: true } }, { onSuccess: refresh, onError: e => { refresh(); setRequirementError(`Your uploaded documents and saved brief are unchanged. ${errorText(e)}`); } }); };
   useEffect(() => {
-    if (!pendingReadPath) return;
+    if (!pendingReadPath || sessionExpired) return;
     const result = localReading.data;
     if (!localReading.isError && (!result || ['queued', 'running'].includes(result.status))) return;
     setPendingRead(null);
@@ -182,7 +209,7 @@ function TenderWorkspace() {
         localReading.isError ? 'Could not load document reading status. Your original is saved; check its status below and retry requirement extraction when ready.' :
           'Local OCR has finished. Verify it against the original below, then extract requirements using the separate AI-processing consent.');
     }
-  }, [pendingReadPath, localReading.data, localReading.isError]);
+  }, [pendingReadPath, localReading.data, localReading.isError, sessionExpired]);
   const afterTenderUpload = (path: string) => { setTab('requirements'); setRequirementError(''); setPendingRead({ tenderId: id, path }); };
   if (detail.isLoading) return <PageSkeleton/>;
   if (detail.isError || !tender) return <QueryError retry={() => void detail.refetch()}/>;
@@ -210,20 +237,20 @@ function TenderWorkspace() {
     </div>
     <div className="mt-7 flex gap-1 overflow-x-auto border-b border-border pb-px">{nav.map(item => { const count = 'count' in item ? item.count : undefined; return <button key={item.key} onClick={() => setTab(item.key)} className={cn('relative flex shrink-0 items-center gap-2 px-3 py-3 text-xs font-bold transition-colors', tab === item.key ? 'text-primary' : 'text-muted-foreground hover:text-foreground')} data-testid={`tab-${item.key}`}>{item.icon}{item.label}{count !== undefined && <span className="mono rounded bg-secondary px-1.5 py-0.5 text-[10px]">{count}</span>}{tab === item.key && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded bg-primary"/>}</button>; })}</div>
     <div className="pt-6">
-      <div hidden={tab !== 'requirements'}><RequirementsPanel tender={tender} files={evidenceQuery.data ?? []} onSave={(requirements, summary, reviewedExtractionId) => { setRequirementError(''); updateTender.mutate({ tenderId: id, data: { requirements, summary, ...(reviewedExtractionId ? { reviewedExtractionId } : {}) } }, { onSuccess: refresh, onError: e => setRequirementError(errorText(e)) }); }} saving={updateTender.isPending} extracting={extract.isPending} error={requirementError} onExtract={runExtraction} onUpload={() => setTenderUploadOpen(true)}/></div>
-      {tab === 'evidence' && <EvidencePanel tenderId={id} evidence={evidenceQuery.data ?? []} loading={evidenceQuery.isLoading} failed={evidenceQuery.isError} onRetry={() => void evidenceQuery.refetch()} onChanged={refresh} onTenderUploaded={afterTenderUpload}/>}
+      <div hidden={tab !== 'requirements'}><RequirementsPanel key={`${userId}:${id}`} tender={tender} userId={userId} files={evidenceQuery.data ?? []} onSave={(requirements, summary, reviewedExtractionId) => { setRequirementError(''); updateTender.mutate({ tenderId: id, data: { requirements, summary, ...(reviewedExtractionId ? { reviewedExtractionId } : {}) } }, { onSuccess: () => { try { window.sessionStorage.removeItem(`tender-draft:${userId}:${id}`); } catch { /* Storage may be blocked. */ } refresh(); }, onError: e => setRequirementError(errorText(e)) }); }} saving={updateTender.isPending} extracting={extract.isPending} error={requirementError} onExtract={runExtraction} onUpload={() => setTenderUploadOpen(true)}/></div>
+      {tab === 'evidence' && <EvidencePanel tenderId={id} userId={userId} evidence={evidenceQuery.data ?? []} loading={evidenceQuery.isLoading} failed={evidenceQuery.isError} onRetry={() => void evidenceQuery.refetch()} onChanged={refresh} onTenderUploaded={afterTenderUpload}/>}
       {tab === 'sources' && <SourcesPanel sources={sourceQuery.data ?? []} loading={sourceQuery.isLoading} failed={sourceQuery.isError} onRetry={() => void sourceQuery.refetch()} onAdd={() => setDialog('source')} onResearch={() => setDialog('research')} onReview={(source, status) => reviewSource.mutate({ sourceId: source.id, data: { reviewStatus: status } }, { onSuccess: refresh })} busy={reviewSource.isPending}/>}
       {tab === 'proposals' && <ProposalPanel tender={tender} proposals={proposalsQuery.data ?? []} loading={proposalsQuery.isLoading} failed={proposalsQuery.isError} onRetry={() => void proposalsQuery.refetch()} onGenerate={() => setDialog('generate')} generating={gen.isPending} error={error} requirementsBlocked={requirementsBlocked}/>}
     </div>
     {dialog === 'source' && <SourceDialog tenderId={id} close={() => setDialog(null)} onDone={refresh}/>}
     {pendingReadPath && <p role="status" className="mt-4 text-sm text-muted-foreground">Reading tender locally before automatic requirements extraction. Local reading continues if you leave; on your return, review any OCR and use Extract requirements to continue.</p>}
-    {tenderUploadOpen && <EvidenceDialog tenderId={id} close={() => setTenderUploadOpen(false)} onDone={refresh} onTenderUploaded={afterTenderUpload}/>}
+    {tenderUploadOpen && <EvidenceDialog tenderId={id} userId={userId} close={() => setTenderUploadOpen(false)} onDone={refresh} onTenderUploaded={afterTenderUpload}/>}
     {dialog === 'research' && <ResearchDialog tenderId={id} close={() => setDialog(null)} onDone={refresh}/>}
     {dialog === 'generate' && <GenerateDialog close={() => setDialog(null)} onConfirm={runGenerate} loading={gen.isPending}/>}
     {deleteConfirm && <Dialog title="Delete this tender?" description="This removes the tender workspace and its metadata. This action cannot be undone." onClose={() => setDeleteConfirm(false)}><div className="flex justify-end gap-2"><Button variant="quiet" onClick={() => setDeleteConfirm(false)}>Cancel</Button><Button variant="danger" onClick={performDelete} disabled={deleteTender.isPending} data-testid="button-confirm-delete">{deleteTender.isPending ? 'Deleting…' : 'Delete tender'}</Button></div>{error && <p className="mt-3 text-sm text-destructive">{error}</p>}</Dialog>}
   </div>;
 }
-function EvidencePanel({ tenderId, evidence, loading, failed, onRetry, onChanged, onTenderUploaded }: { tenderId: string; evidence: Evidence[]; loading: boolean; failed: boolean; onRetry: () => void; onChanged: () => void; onTenderUploaded: (path: string) => void }) {
+function EvidencePanel({ tenderId, userId, evidence, loading, failed, onRetry, onChanged, onTenderUploaded }: { tenderId: string; userId: string; evidence: Evidence[]; loading: boolean; failed: boolean; onRetry: () => void; onChanged: () => void; onTenderUploaded: (path: string) => void }) {
   const [uploadOpen, setUploadOpen] = useState(false); const remove = useDeleteEvidence(); const qc = useQueryClient(); const [pickOpen, setPickOpen] = useState(false); const review = useReviewEvidenceApplicability(); const [reviewError, setReviewError] = useState(''); const refreshCompany = useCompanyEvidenceRefresh();
   if (loading) return <PageSkeleton/>; if (failed) return <QueryError retry={onRetry}/>;
   return <section><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-primary">Source documents</p><h2 className="mt-1 font-[Manrope] text-xl font-bold">Evidence library</h2><p className="mt-1 text-xs text-muted-foreground">Files and notes remain connected to this tender record.</p></div><Button onClick={() => setUploadOpen(true)} data-testid="button-upload-evidence"><Upload size={16}/>Add evidence</Button><Button variant="secondary" onClick={() => setPickOpen(true)} data-testid="button-reuse-evidence"><FolderOpen size={16}/>Reuse from library</Button></div>{reviewError && <p className="mt-3 text-sm text-destructive">{reviewError}</p>}
@@ -241,7 +268,7 @@ function EvidencePanel({ tenderId, evidence, loading, failed, onRetry, onChanged
         <DocumentReview path={item.objectPath}/>
         <p className="mt-3 text-[10px] text-muted-foreground">Added {formatDate(item.uploadedAt)}</p>
       </div>)}</div>}
-    {uploadOpen && <EvidenceDialog tenderId={tenderId} close={() => setUploadOpen(false)} onDone={onChanged} onTenderUploaded={onTenderUploaded}/>}
+    {uploadOpen && <EvidenceDialog tenderId={tenderId} userId={userId} close={() => setUploadOpen(false)} onDone={onChanged} onTenderUploaded={onTenderUploaded}/>}
     {pickOpen && <ReusePicker tenderId={tenderId} linked={evidence.map(e => e.companyEvidenceId).filter(Boolean) as string[]} close={() => setPickOpen(false)} onDone={onChanged}/>}
   </section>;
 }
@@ -256,10 +283,28 @@ function ReusePicker({ tenderId, linked, close, onDone }: { tenderId: string; li
       <Button variant="secondary" disabled={link.isPending || linked.includes(i.id)} onClick={() => { setError(''); link.mutate({ tenderId, data: { companyEvidenceId: i.id } }, { onSuccess: () => { refresh([tenderId]); onDone(); }, onError: e => setError(errorText(e)) }); }} data-testid={`button-link-${i.id}`}>{linked.includes(i.id) ? 'Linked' : link.isPending ? 'Linking…' : 'Link'}</Button></div>)}</div>
   </Dialog>;
 }
-function EvidenceDialog({ tenderId, close, onDone, onTenderUploaded }: { tenderId: string; close: () => void; onDone: () => void; onTenderUploaded: (path: string) => void }) {
+function EvidenceDialog({ tenderId, userId, close, onDone, onTenderUploaded }: { tenderId: string; userId: string; close: () => void; onDone: () => void; onTenderUploaded: (path: string) => void }) {
   const uploadUrl = useRequestUploadUrl(); const add = useAddTenderEvidence(); const qc = useQueryClient();
-  const [file, setFile] = useState<File | null>(null); const [category, setCategory] = useState('tender_rfp'); const [notes, setNotes] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  const draftKey = `tender-upload-draft:${userId}:${tenderId}`;
+  const savedDraft = (() => {
+    try {
+      const raw = window.sessionStorage.getItem(draftKey);
+      return raw ? JSON.parse(raw) as { category?: string; notes?: string; fileName?: string } : null;
+    } catch {
+      return null;
+    }
+  })();
+  const savedCategory = categories.some(([id]) => id === savedDraft?.category) ? savedDraft?.category ?? 'tender_rfp' : 'tender_rfp';
+  const [file, setFile] = useState<File | null>(null); const [fileName, setFileName] = useState(savedDraft?.fileName ?? ''); const [category, setCategory] = useState(savedCategory); const [notes, setNotes] = useState(savedDraft?.notes ?? ''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
+  useEffect(() => {
+    try {
+      if (fileName || notes) window.sessionStorage.setItem(draftKey, JSON.stringify({ category, notes, fileName }));
+      else window.sessionStorage.removeItem(draftKey);
+    } catch {
+      // The dialog remains usable if session storage is unavailable.
+    }
+  }, [draftKey, fileName, category, notes]);
   const submit = async (e: FormEvent) => {
     e.preventDefault(); if (!file) { setError('Choose a file before continuing.'); return; }
     if (category === 'tender_rfp' && !aiConsent) { setError('Please consent to AI processing to automatically extract this tender.'); return; }
@@ -270,11 +315,13 @@ function EvidenceDialog({ tenderId, close, onDone, onTenderUploaded }: { tenderI
       if (!result.ok) throw new Error(`File upload failed (${result.status}).`);
       const payload: EvidenceInput = { name: file.name, category: category as EvidenceInput['category'], objectPath: url.objectPath, contentType: file.type || 'application/octet-stream', size: file.size, notes };
       await new Promise<void>((resolve, reject) => add.mutate({ tenderId, data: payload }, { onSuccess: () => resolve(), onError: reject }));
+      try { window.sessionStorage.removeItem(draftKey); } catch { /* Storage may be blocked. */ }
       void qc.invalidateQueries({ queryKey: getListTenderEvidenceQueryKey(tenderId) }); onDone(); close(); if (category === 'tender_rfp') onTenderUploaded(url.objectPath);
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };
   return <Dialog title="Attach evidence" description="Upload one source file and record why it matters to this tender." onClose={close}>
-    <form onSubmit={submit} className="grid gap-4"><Field label="File"><input type="file" className={cn(inputClass, 'file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-xs')} onChange={e => setFile(e.target.files?.[0] ?? null)} data-testid="input-evidence-file"/>{file && <span className="text-xs text-muted-foreground">{file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</span>}</Field>
+    <form onSubmit={submit} className="grid gap-4"><Field label="File"><input type="file" className={cn(inputClass, 'file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-xs')} onChange={e => { const selected = e.target.files?.[0] ?? null; setFile(selected); setFileName(selected?.name ?? ''); }} data-testid="input-evidence-file"/>{file && <span className="text-xs text-muted-foreground">{file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</span>}</Field>
+      {!file && fileName && <p role="status" className="rounded-lg border border-amber-900/20 bg-amber-900/[.06] p-3 text-xs text-amber-950">Your previous selection, {fileName}, was not uploaded again. Select the file once more to continue.</p>}
       <Field label="Evidence category"><select className={inputClass} value={category} onChange={e => setCategory(e.target.value)} data-testid="select-evidence-category">{categories.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></Field>
       <Field label="Notes / summary" hint="A short note helps reviewers understand the context."><textarea className={cn(inputClass, 'min-h-24 resize-y')} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Relevant sections, dates, or context" data-testid="textarea-evidence-notes"/></Field>
       <p className="text-xs text-muted-foreground">{OCR_NOTE}</p>
@@ -384,7 +431,8 @@ function ProposalPanel({ tender, proposals, loading, failed, onRetry, onGenerate
 }
 function Router() {
   const [location] = useLocation();
-  return <AppShell><ErrorBoundary resetKey={location}><Switch><Route path="/" component={Dashboard}/><Route path="/tenders/:tenderId" component={TenderWorkspace}/><Route path="/company-evidence" component={CompanyEvidencePage}/><Route path="/library" component={LibraryPage}/><Route path="/library/:entryId" component={LibraryEntryPage}/><Route path="/proposals/:proposalId" component={ProposalEditor}/><Route component={NotFound}/></Switch></ErrorBoundary></AppShell>;
+  const auth = useAuth();
+  return <AppShell auth={auth}><ErrorBoundary resetKey={location}><Switch><Route path="/" component={Dashboard}/><Route path="/tenders/:tenderId" component={() => <TenderWorkspace userId={auth.user?.id ?? ''} sessionExpired={auth.isSessionExpired}/ >}/><Route path="/company-evidence" component={CompanyEvidencePage}/><Route path="/library" component={LibraryPage}/><Route path="/library/:entryId" component={LibraryEntryPage}/><Route path="/proposals/:proposalId" component={ProposalEditor}/><Route component={NotFound}/></Switch></ErrorBoundary></AppShell>;
 }
 function App() {
   return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router/></WouterRouter><Toaster/></TooltipProvider></QueryClientProvider>;

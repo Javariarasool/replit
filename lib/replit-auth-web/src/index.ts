@@ -1,2 +1,2 @@
-export { useAuth } from './use-auth';
-export type { AuthUser } from './use-auth';
+export { notifySessionExpired, SESSION_EXPIRED_EVENT, useAuth } from './use-auth';
+export type { AuthState, AuthUser } from './use-auth';

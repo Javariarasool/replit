@@ -7,6 +7,7 @@ import { RequirementWorkspace } from './requirements/requirement-workspace';
 
 interface Props {
   tender: Tender;
+  userId: string;
   files: Evidence[];
   saving: boolean;
   extracting: boolean;
@@ -16,10 +17,20 @@ interface Props {
   onUpload: () => void;
 }
 
-export function RequirementsPanel({ tender, files, saving, extracting, error, onSave, onExtract, onUpload }: Props) {
-  const [requirements, setRequirements] = useState(tender.requirements ?? '');
-  const [summary, setSummary] = useState(tender.summary ?? '');
-  const [reviewId, setReviewId] = useState<string>();
+export function RequirementsPanel({ tender, userId, files, saving, extracting, error, onSave, onExtract, onUpload }: Props) {
+  const draftKey = `tender-draft:${userId}:${tender.id}`;
+  const savedDraft = (() => {
+    if (!userId) return null;
+    try {
+      const raw = window.sessionStorage.getItem(draftKey);
+      return raw ? JSON.parse(raw) as { requirements?: string; summary?: string; reviewId?: string } : null;
+    } catch {
+      return null;
+    }
+  })();
+  const [requirements, setRequirements] = useState(savedDraft?.requirements ?? tender.requirements ?? '');
+  const [summary, setSummary] = useState(savedDraft?.summary ?? tender.summary ?? '');
+  const [reviewId, setReviewId] = useState<string | undefined>(savedDraft?.reviewId);
   const [consentOpen, setConsentOpen] = useState(false);
   const previous = useRef({ requirements: tender.requirements ?? '', summary: tender.summary ?? '' });
   useEffect(() => {
@@ -28,6 +39,18 @@ export function RequirementsPanel({ tender, files, saving, extracting, error, on
     setSummary(value => value === old.summary ? tender.summary ?? '' : value);
     previous.current = { requirements: tender.requirements ?? '', summary: tender.summary ?? '' };
   }, [tender.requirements, tender.summary]);
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      if (requirements !== (tender.requirements ?? '') || summary !== (tender.summary ?? '') || reviewId) {
+        window.sessionStorage.setItem(draftKey, JSON.stringify({ requirements, summary, reviewId }));
+      } else {
+        window.sessionStorage.removeItem(draftKey);
+      }
+    } catch {
+      // Keep editing available when browser storage is restricted.
+    }
+  }, [draftKey, userId, requirements, summary, reviewId, tender.requirements, tender.summary]);
   const extraction = tender.requirementsExtraction;
   const rfpFiles = files.filter(f => f.category === 'tender_rfp');
   const changed = !!extraction && JSON.stringify(rfpFiles.map(f => f.id).sort()) !== JSON.stringify(extraction.sourceFiles.map(f => f.id).sort());
