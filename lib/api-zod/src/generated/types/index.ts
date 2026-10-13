@@ -17,6 +17,8 @@ export * from './companyEvidenceMetadataCategory';
 export * from './companyEvidenceMetadataTenderCategory';
 export * from './dashboardSummary';
 export * from './documentExtraction';
+export * from './documentExtractionJob';
+export * from './documentExtractionJobStatus';
 export * from './documentExtractionPagesItem';
 export * from './documentExtractionStatus';
 export * from './errorEnvelope';

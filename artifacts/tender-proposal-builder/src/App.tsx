@@ -6,7 +6,7 @@ import {
   useGetDashboardSummary, useListTenders, useCreateTender, useGetTender, useUpdateTender, useDeleteTender,
   useListTenderEvidence, useAddTenderEvidence, useDeleteEvidence, useListVendorSources, useAddVendorSource,
   useReviewVendorSource, useListProposals, useGenerateProposalPair, useUpdateProposal, useRequestUploadUrl,
-  useResearchVendorSource, useExtractTenderRequirements,
+  useResearchVendorSource, useExtractTenderRequirements, useGetDocumentExtraction, getGetDocumentExtractionQueryKey,
   useListRequirementItems, getListRequirementItemsQueryKey,
   useListCompanyEvidence, useLinkCompanyEvidence, useReviewEvidenceApplicability,
   getGetDashboardSummaryQueryKey, getListTendersQueryKey, getGetTenderQueryKey, getListTenderEvidenceQueryKey,
@@ -153,6 +153,12 @@ function TenderWorkspace() {
   const detail = useGetTender(id); const evidenceQuery = useListTenderEvidence(id); const sourceQuery = useListVendorSources(id); const proposalsQuery = useListProposals(id);
   const qc = useQueryClient(); const updateTender = useUpdateTender(); const deleteTender = useDeleteTender(); const gen = useGenerateProposalPair();
   const extract = useExtractTenderRequirements(); const [requirementError, setRequirementError] = useState(''); const [tenderUploadOpen, setTenderUploadOpen] = useState(false);
+  const [pendingRead, setPendingRead] = useState<{ tenderId: string; path: string } | null>(null);
+  const pendingReadPath = pendingRead?.tenderId === id ? pendingRead.path : null;
+  const localReading = useGetDocumentExtraction({ objectPath: pendingReadPath ?? '' }, { query: {
+    queryKey: getGetDocumentExtractionQueryKey({ objectPath: pendingReadPath ?? '' }),
+    enabled: !!pendingReadPath, refetchInterval: pendingReadPath ? 2000 : false,
+  } });
   const addSource = useAddVendorSource(); const reviewSource = useReviewVendorSource(); const [tab, setTab] = useState<'requirements' | 'evidence' | 'sources' | 'proposals'>('requirements');
   const [dialog, setDialog] = useState<DialogName>(null); const [deleteConfirm, setDeleteConfirm] = useState(false); const [error, setError] = useState('');
   const tender = detail.data;
@@ -163,12 +169,26 @@ function TenderWorkspace() {
     void qc.invalidateQueries({ queryKey: getListVendorSourcesQueryKey(id) }); void qc.invalidateQueries({ queryKey: getListProposalsQueryKey(id) });
     void qc.invalidateQueries({ queryKey: getListRequirementItemsQueryKey(id) });
   };
+  const runExtraction = () => { setTab('requirements'); setRequirementError(''); extract.mutate({ tenderId: id, data: { aiConsent: true } }, { onSuccess: refresh, onError: e => { refresh(); setRequirementError(`Your uploaded documents and saved brief are unchanged. ${errorText(e)}`); } }); };
+  useEffect(() => {
+    if (!pendingReadPath) return;
+    const result = localReading.data;
+    if (!localReading.isError && (!result || ['queued', 'running'].includes(result.status))) return;
+    setPendingRead(null);
+    if (result?.status === 'not_needed' || result?.status === 'verified') {
+      runExtraction();
+    } else {
+      setRequirementError(result?.status === 'failed' ? `Document reading failed: ${result.error}. Your original is saved; retry local reading below.` :
+        localReading.isError ? 'Could not load document reading status. Your original is saved; check its status below and retry requirement extraction when ready.' :
+          'Local OCR has finished. Verify it against the original below, then extract requirements using the separate AI-processing consent.');
+    }
+  }, [pendingReadPath, localReading.data, localReading.isError]);
+  const afterTenderUpload = (path: string) => { setTab('requirements'); setRequirementError(''); setPendingRead({ tenderId: id, path }); };
   if (detail.isLoading) return <PageSkeleton/>;
   if (detail.isError || !tender) return <QueryError retry={() => void detail.refetch()}/>;
   const pending = (sourceQuery.data ?? []).filter(source => source.reviewStatus === 'pending').length;
   const performDelete = () => deleteTender.mutate({ tenderId: id }, { onSuccess: () => { void qc.invalidateQueries({ queryKey: getListTendersQueryKey() }); void qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); navigate('/'); }, onError: e => setError(errorText(e)) });
   const runGenerate = (ids: string[]) => { setError(''); gen.mutate({ tenderId: id, data: { aiConsent: true, ...(ids.length ? { libraryEntryIds: ids } : {}) } }, { onSuccess: refresh, onError: e => setError(errorText(e)) }); setDialog(null); };
-  const runExtraction = () => { setTab('requirements'); setRequirementError(''); extract.mutate({ tenderId: id, data: { aiConsent: true } }, { onSuccess: refresh, onError: e => { refresh(); setRequirementError(`Your uploaded documents and saved brief are unchanged. ${errorText(e)}`); } }); };
   const requirementsBlocked = extract.isPending ? 'Tender requirements are being extracted. Review them before generating.' :
     requirementItems.isLoading || requirementItems.isError ? 'Individual requirements must be loaded before proposal generation.' :
     requirementItems.data?.some(r => r.reviewStatus !== 'approved' || r.extractionId !== (tender.requirementsExtraction?.id ?? null)) ? 'Review each individual requirement against the current tender before generating.' :
@@ -191,18 +211,19 @@ function TenderWorkspace() {
     <div className="mt-7 flex gap-1 overflow-x-auto border-b border-border pb-px">{nav.map(item => { const count = 'count' in item ? item.count : undefined; return <button key={item.key} onClick={() => setTab(item.key)} className={cn('relative flex shrink-0 items-center gap-2 px-3 py-3 text-xs font-bold transition-colors', tab === item.key ? 'text-primary' : 'text-muted-foreground hover:text-foreground')} data-testid={`tab-${item.key}`}>{item.icon}{item.label}{count !== undefined && <span className="mono rounded bg-secondary px-1.5 py-0.5 text-[10px]">{count}</span>}{tab === item.key && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded bg-primary"/>}</button>; })}</div>
     <div className="pt-6">
       <div hidden={tab !== 'requirements'}><RequirementsPanel tender={tender} files={evidenceQuery.data ?? []} onSave={(requirements, summary, reviewedExtractionId) => { setRequirementError(''); updateTender.mutate({ tenderId: id, data: { requirements, summary, ...(reviewedExtractionId ? { reviewedExtractionId } : {}) } }, { onSuccess: refresh, onError: e => setRequirementError(errorText(e)) }); }} saving={updateTender.isPending} extracting={extract.isPending} error={requirementError} onExtract={runExtraction} onUpload={() => setTenderUploadOpen(true)}/></div>
-      {tab === 'evidence' && <EvidencePanel tenderId={id} evidence={evidenceQuery.data ?? []} loading={evidenceQuery.isLoading} failed={evidenceQuery.isError} onRetry={() => void evidenceQuery.refetch()} onChanged={refresh} onTenderUploaded={runExtraction}/>}
+      {tab === 'evidence' && <EvidencePanel tenderId={id} evidence={evidenceQuery.data ?? []} loading={evidenceQuery.isLoading} failed={evidenceQuery.isError} onRetry={() => void evidenceQuery.refetch()} onChanged={refresh} onTenderUploaded={afterTenderUpload}/>}
       {tab === 'sources' && <SourcesPanel sources={sourceQuery.data ?? []} loading={sourceQuery.isLoading} failed={sourceQuery.isError} onRetry={() => void sourceQuery.refetch()} onAdd={() => setDialog('source')} onResearch={() => setDialog('research')} onReview={(source, status) => reviewSource.mutate({ sourceId: source.id, data: { reviewStatus: status } }, { onSuccess: refresh })} busy={reviewSource.isPending}/>}
       {tab === 'proposals' && <ProposalPanel tender={tender} proposals={proposalsQuery.data ?? []} loading={proposalsQuery.isLoading} failed={proposalsQuery.isError} onRetry={() => void proposalsQuery.refetch()} onGenerate={() => setDialog('generate')} generating={gen.isPending} error={error} requirementsBlocked={requirementsBlocked}/>}
     </div>
     {dialog === 'source' && <SourceDialog tenderId={id} close={() => setDialog(null)} onDone={refresh}/>}
-    {tenderUploadOpen && <EvidenceDialog tenderId={id} close={() => setTenderUploadOpen(false)} onDone={refresh} onTenderUploaded={runExtraction}/>}
+    {pendingReadPath && <p role="status" className="mt-4 text-sm text-muted-foreground">Reading tender locally before automatic requirements extraction. Local reading continues if you leave; on your return, review any OCR and use Extract requirements to continue.</p>}
+    {tenderUploadOpen && <EvidenceDialog tenderId={id} close={() => setTenderUploadOpen(false)} onDone={refresh} onTenderUploaded={afterTenderUpload}/>}
     {dialog === 'research' && <ResearchDialog tenderId={id} close={() => setDialog(null)} onDone={refresh}/>}
     {dialog === 'generate' && <GenerateDialog close={() => setDialog(null)} onConfirm={runGenerate} loading={gen.isPending}/>}
     {deleteConfirm && <Dialog title="Delete this tender?" description="This removes the tender workspace and its metadata. This action cannot be undone." onClose={() => setDeleteConfirm(false)}><div className="flex justify-end gap-2"><Button variant="quiet" onClick={() => setDeleteConfirm(false)}>Cancel</Button><Button variant="danger" onClick={performDelete} disabled={deleteTender.isPending} data-testid="button-confirm-delete">{deleteTender.isPending ? 'Deleting…' : 'Delete tender'}</Button></div>{error && <p className="mt-3 text-sm text-destructive">{error}</p>}</Dialog>}
   </div>;
 }
-function EvidencePanel({ tenderId, evidence, loading, failed, onRetry, onChanged, onTenderUploaded }: { tenderId: string; evidence: Evidence[]; loading: boolean; failed: boolean; onRetry: () => void; onChanged: () => void; onTenderUploaded: () => void }) {
+function EvidencePanel({ tenderId, evidence, loading, failed, onRetry, onChanged, onTenderUploaded }: { tenderId: string; evidence: Evidence[]; loading: boolean; failed: boolean; onRetry: () => void; onChanged: () => void; onTenderUploaded: (path: string) => void }) {
   const [uploadOpen, setUploadOpen] = useState(false); const remove = useDeleteEvidence(); const qc = useQueryClient(); const [pickOpen, setPickOpen] = useState(false); const review = useReviewEvidenceApplicability(); const [reviewError, setReviewError] = useState(''); const refreshCompany = useCompanyEvidenceRefresh();
   if (loading) return <PageSkeleton/>; if (failed) return <QueryError retry={onRetry}/>;
   return <section><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="font-mono text-[10px] uppercase tracking-[.16em] text-primary">Source documents</p><h2 className="mt-1 font-[Manrope] text-xl font-bold">Evidence library</h2><p className="mt-1 text-xs text-muted-foreground">Files and notes remain connected to this tender record.</p></div><Button onClick={() => setUploadOpen(true)} data-testid="button-upload-evidence"><Upload size={16}/>Add evidence</Button><Button variant="secondary" onClick={() => setPickOpen(true)} data-testid="button-reuse-evidence"><FolderOpen size={16}/>Reuse from library</Button></div>{reviewError && <p className="mt-3 text-sm text-destructive">{reviewError}</p>}
@@ -235,7 +256,7 @@ function ReusePicker({ tenderId, linked, close, onDone }: { tenderId: string; li
       <Button variant="secondary" disabled={link.isPending || linked.includes(i.id)} onClick={() => { setError(''); link.mutate({ tenderId, data: { companyEvidenceId: i.id } }, { onSuccess: () => { refresh([tenderId]); onDone(); }, onError: e => setError(errorText(e)) }); }} data-testid={`button-link-${i.id}`}>{linked.includes(i.id) ? 'Linked' : link.isPending ? 'Linking…' : 'Link'}</Button></div>)}</div>
   </Dialog>;
 }
-function EvidenceDialog({ tenderId, close, onDone, onTenderUploaded }: { tenderId: string; close: () => void; onDone: () => void; onTenderUploaded: () => void }) {
+function EvidenceDialog({ tenderId, close, onDone, onTenderUploaded }: { tenderId: string; close: () => void; onDone: () => void; onTenderUploaded: (path: string) => void }) {
   const uploadUrl = useRequestUploadUrl(); const add = useAddTenderEvidence(); const qc = useQueryClient();
   const [file, setFile] = useState<File | null>(null); const [category, setCategory] = useState('tender_rfp'); const [notes, setNotes] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
@@ -249,7 +270,7 @@ function EvidenceDialog({ tenderId, close, onDone, onTenderUploaded }: { tenderI
       if (!result.ok) throw new Error(`File upload failed (${result.status}).`);
       const payload: EvidenceInput = { name: file.name, category: category as EvidenceInput['category'], objectPath: url.objectPath, contentType: file.type || 'application/octet-stream', size: file.size, notes };
       await new Promise<void>((resolve, reject) => add.mutate({ tenderId, data: payload }, { onSuccess: () => resolve(), onError: reject }));
-      void qc.invalidateQueries({ queryKey: getListTenderEvidenceQueryKey(tenderId) }); onDone(); close(); if (category === 'tender_rfp') onTenderUploaded();
+      void qc.invalidateQueries({ queryKey: getListTenderEvidenceQueryKey(tenderId) }); onDone(); close(); if (category === 'tender_rfp') onTenderUploaded(url.objectPath);
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };
   return <Dialog title="Attach evidence" description="Upload one source file and record why it matters to this tender." onClose={close}>

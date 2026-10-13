@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { useGetLibraryEntry, useUpdateLibraryEntry, useDeleteLibraryEntry, getGetLibraryEntryQueryKey, getListProposalLibraryQueryKey } from '@workspace/api-client-react';
+import { useGetLibraryEntry, useUpdateLibraryEntry, useDeleteLibraryEntry, getGetLibraryEntryQueryKey, getListProposalLibraryQueryKey, useGetDocumentExtraction, getGetDocumentExtractionQueryKey } from '@workspace/api-client-react';
 import type { LibraryEntryDetail, LibraryEntryUpdateCategory, LibraryEntryUpdateOutcome } from '@workspace/api-client-react';
 import { ArrowLeft, Check, CircleAlert, ExternalLink, FileText, LoaderCircle, Trash2 } from 'lucide-react';
 import { Button, Dialog, Field, PageSkeleton, Pill, QueryError, cn, errorText, formatDate, inputClass } from '@/components/ui-kit';
@@ -9,12 +9,18 @@ import { OutcomePill, SCAN_NOTE, categoryLabel, libraryCategories, libraryOutcom
 import { DocumentReview } from '@/components/document-review';
 
 function TextBlock({ label, text, path }: { label: string; text: string; path: string | null }) {
+  const extraction = useGetDocumentExtraction({ objectPath: path ?? '' }, { query: {
+    queryKey: getGetDocumentExtractionQueryKey({ objectPath: path ?? '' }), enabled: !!path,
+  } });
+  const sourceText = extraction.data?.sourceText ?? text;
+  const pending = ['queued', 'running'].includes(extraction.data?.status ?? '');
   return <section className="rounded-xl border border-border bg-card p-5" data-testid={`section-text-${label.toLowerCase()}`}>
     <div className="flex items-center justify-between gap-3"><h3 className="flex items-center gap-2 font-[Manrope] text-sm font-bold"><FileText size={15} className="text-primary"/>{label} text</h3>
       {path ? <a href={objectUrl(path)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline" data-testid={`link-original-${label.toLowerCase()}`}>View original <ExternalLink size={12}/></a> : <Pill>No file</Pill>}</div>
     {!path ? <p className="mt-3 text-xs text-muted-foreground">No {label.toLowerCase()} file was stored for this entry.</p>
-      : text.trim() ? <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-background p-4 font-sans text-xs leading-6">{text}</pre>
-      : <p className="mt-3 rounded-lg bg-amber-900/[.06] p-3 text-xs leading-5 text-amber-900">No readable text was extracted. {SCAN_NOTE}</p>}
+      : sourceText.trim() ? <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-background p-4 font-sans text-xs leading-6">{sourceText}</pre>
+      : pending || extraction.isLoading ? <p className="mt-3 text-xs text-muted-foreground">Document reading is in progress. Follow its status below.</p>
+      : <p className="mt-3 rounded-lg bg-amber-900/[.06] p-3 text-xs leading-5 text-amber-900">No embedded source text is available. Check the reading status and any OCR below. {SCAN_NOTE}</p>}
     {path && <DocumentReview path={path}/>}
   </section>;
 }

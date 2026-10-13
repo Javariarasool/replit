@@ -10,6 +10,8 @@ export type DocumentExtractionStatus = typeof DocumentExtractionStatus[keyof typ
 
 
 export const DocumentExtractionStatus = {
+  queued: 'queued',
+  running: 'running',
   not_needed: 'not_needed',
   needs_review: 'needs_review',
   verified: 'verified',

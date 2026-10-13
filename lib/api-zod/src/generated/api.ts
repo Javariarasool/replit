@@ -1921,12 +1921,21 @@ export const GetDocumentExtractionResponse = zod.union([zod.object({
   "sourceText": zod.string(),
   "ocrText": zod.string(),
   "confidence": zod.number().nullable(),
-  "status": zod.enum(['not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "status": zod.enum(['queued', 'running', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
   "error": zod.string().nullable(),
   "reviewedText": zod.string().nullable(),
   "reviewedAt": zod.string().nullable(),
   "engine": zod.string(),
   "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.'),
+  "job": zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['queued', 'running', 'completed', 'failed']),
+  "completedPages": zod.number().int(),
+  "totalPages": zod.number().int().nullable(),
+  "stage": zod.string(),
+  "queuedAt": zod.string(),
+  "finishedAt": zod.string().nullable()
+}).optional(),
   "pages": zod.array(zod.object({
   "page": zod.number().int(),
   "text": zod.string(),
@@ -1936,7 +1945,7 @@ export const GetDocumentExtractionResponse = zod.union([zod.object({
 
 
 /**
- * @summary Extract locally without sending document images to an AI provider
+ * @summary Queue durable local extraction without sending document images to an AI provider
  */
 
 export const extractUploadedDocumentBodyRetryDefault = false;
@@ -1951,12 +1960,21 @@ export const ExtractUploadedDocumentResponse = zod.object({
   "sourceText": zod.string(),
   "ocrText": zod.string(),
   "confidence": zod.number().nullable(),
-  "status": zod.enum(['not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "status": zod.enum(['queued', 'running', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
   "error": zod.string().nullable(),
   "reviewedText": zod.string().nullable(),
   "reviewedAt": zod.string().nullable(),
   "engine": zod.string(),
   "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.'),
+  "job": zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['queued', 'running', 'completed', 'failed']),
+  "completedPages": zod.number().int(),
+  "totalPages": zod.number().int().nullable(),
+  "stage": zod.string(),
+  "queuedAt": zod.string(),
+  "finishedAt": zod.string().nullable()
+}).optional(),
   "pages": zod.array(zod.object({
   "page": zod.number().int(),
   "text": zod.string(),
@@ -1985,12 +2003,21 @@ export const ReviewDocumentExtractionResponse = zod.object({
   "sourceText": zod.string(),
   "ocrText": zod.string(),
   "confidence": zod.number().nullable(),
-  "status": zod.enum(['not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
+  "status": zod.enum(['queued', 'running', 'not_needed', 'needs_review', 'verified', 'rejected', 'failed']),
   "error": zod.string().nullable(),
   "reviewedText": zod.string().nullable(),
   "reviewedAt": zod.string().nullable(),
   "engine": zod.string(),
   "language": zod.enum(['eng', 'urd', 'eng+urd']).optional().describe('Local recognition language. Omit to retain an existing extraction\'s language, or use English for a new extraction.'),
+  "job": zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['queued', 'running', 'completed', 'failed']),
+  "completedPages": zod.number().int(),
+  "totalPages": zod.number().int().nullable(),
+  "stage": zod.string(),
+  "queuedAt": zod.string(),
+  "finishedAt": zod.string().nullable()
+}).optional(),
   "pages": zod.array(zod.object({
   "page": zod.number().int(),
   "text": zod.string(),

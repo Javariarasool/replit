@@ -739,7 +739,7 @@ paths:
     post:
       operationId: extractUploadedDocument
       tags: [evidence]
-      summary: Extract locally without sending document images to an AI provider
+      summary: Queue durable local extraction without sending document images to an AI provider
       requestBody:
         required: true
         content:
@@ -747,7 +747,7 @@ paths:
             schema: { $ref: "#/components/schemas/ExtractionInput" }
       responses:
         "200":
-          description: Local extraction result.
+          description: Saved extraction state; queued and running jobs continue independently of this request.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/DocumentExtraction" }
@@ -815,13 +815,24 @@ components:
         sourceText: { type: string }
         ocrText: { type: string }
         confidence: { type: [number, "null"] }
-        status: { type: string, enum: [not_needed, needs_review, verified, rejected, failed] }
+        status: { type: string, enum: [queued, running, not_needed, needs_review, verified, rejected, failed] }
         error: { type: [string, "null"] }
         reviewedText: { type: [string, "null"] }
         reviewedAt: { type: [string, "null"] }
         engine: { type: string }
         language:
           $ref: "#/components/schemas/OcrLanguage"
+        job:
+          type: object
+          required: [id, status, completedPages, totalPages, stage, queuedAt, finishedAt]
+          properties:
+            id: { type: string }
+            status: { type: string, enum: [queued, running, completed, failed] }
+            completedPages: { type: integer }
+            totalPages: { type: [integer, "null"] }
+            stage: { type: string }
+            queuedAt: { type: string }
+            finishedAt: { type: [string, "null"] }
         pages:
           type: array
           items:

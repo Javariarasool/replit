@@ -35,7 +35,7 @@ export function ImportDialog({ close, onCreated }: { close: () => void; onCreate
       create.mutate({ data }, { onSuccess: entry => { void qc.invalidateQueries({ queryKey: getListProposalLibraryQueryKey() }); onCreated(entry.id); }, onError: err => { setError(errorText(err)); setBusy(false); } });
     } catch (err) { setError(errorText(err)); setBusy(false); }
   };
-  return <Dialog wide title="Import a past proposal" description="Private to your workspace. Files are stored privately and their text is extracted for search." onClose={close}>
+  return <Dialog wide title="Import a past proposal" description="Private to your workspace. Once files are uploaded and the entry is saved, reading continues in the background. Open the saved entry to follow progress and review OCR." onClose={busy ? () => {} : close}>
     <form onSubmit={e => void submit(e)} className="grid gap-4">
       <Field label="Library title"><input required maxLength={300} className={inputClass} value={form.title} onChange={e => set('title', e.target.value)} data-testid="input-library-title"/></Field>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -53,7 +53,8 @@ export function ImportDialog({ close, onCreated }: { close: () => void; onCreate
         <input type="file" className="sr-only" onChange={e => { const f = e.target.files?.[0]; setFiles(p => ({ ...p, [slot]: f })); }} data-testid={`input-library-file-${slot}`}/></label>)}</div>
       <p className="flex items-start gap-2 rounded-lg bg-secondary/60 p-3 text-xs leading-5 text-muted-foreground"><Info size={14} className="mt-0.5 shrink-0"/>{OCR_NOTE}</p>
       {error && <p className="text-sm text-destructive" data-testid="text-import-error">{error}</p>}
-      <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="quiet" onClick={close}>Cancel</Button><Button type="submit" disabled={busy} data-testid="button-submit-import">{busy ? <LoaderCircle size={15} className="animate-spin"/> : <Upload size={15}/>}Import to library</Button></div>
+      {busy && <p role="status" className="text-xs text-muted-foreground">Uploading files and saving the entry. Keep this dialog open until the uploads finish; OCR will then run in the background.</p>}
+      <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="quiet" disabled={busy} onClick={close}>Cancel</Button><Button type="submit" disabled={busy} data-testid="button-submit-import">{busy ? <LoaderCircle size={15} className="animate-spin"/> : <Upload size={15}/>}Import to library</Button></div>
     </form>
   </Dialog>;
 }

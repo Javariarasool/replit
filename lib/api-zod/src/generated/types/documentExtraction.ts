@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DocumentExtractionJob } from './documentExtractionJob';
 import type { DocumentExtractionPagesItem } from './documentExtractionPagesItem';
 import type { DocumentExtractionStatus } from './documentExtractionStatus';
 import type { OcrLanguage } from './ocrLanguage';
@@ -23,5 +24,6 @@ export interface DocumentExtraction {
   reviewedAt: string | null;
   engine: string;
   language?: OcrLanguage;
+  job?: DocumentExtractionJob;
   pages: DocumentExtractionPagesItem[];
 }

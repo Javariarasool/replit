@@ -3664,7 +3664,7 @@ export const getExtractUploadedDocumentUrl = () => {
 }
 
 /**
- * @summary Extract locally without sending document images to an AI provider
+ * @summary Queue durable local extraction without sending document images to an AI provider
  */
 export const extractUploadedDocument = async (extractionInput: ExtractionInput, options?: Parameters<typeof customFetch>[1]): Promise<DocumentExtraction> => {
 
@@ -3730,7 +3730,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ExtractUploadedDocumentMutationVariables = {data: BodyType<ExtractionInput>}
 
     /**
- * @summary Extract locally without sending document images to an AI provider
+ * @summary Queue durable local extraction without sending document images to an AI provider
  */
 export const useExtractUploadedDocument = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractUploadedDocument>>, TError,ExtractUploadedDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}

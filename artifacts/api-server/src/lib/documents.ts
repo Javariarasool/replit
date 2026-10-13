@@ -1,7 +1,7 @@
 import { PDFParse } from "pdf-parse";
 import { extractRawText } from "mammoth";
 import type { Evidence } from "@workspace/db";
-import { ensureExtraction, draftingText } from "./document-extractions";
+import { ensureExtraction, draftingText, extractionPending } from "./document-extractions";
 
 export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 
@@ -26,6 +26,7 @@ export async function evidenceContext(files: Evidence[]): Promise<string> {
   for (const file of files) {
     let extracted: string;
     const extraction = await ensureExtraction(file.objectPath, file.ownerId);
+    if (extractionPending(extraction)) throw new Error(`"${file.name}" is still being read in the background. Wait for completion before drafting.`);
     if (extraction.status === "needs_review") throw new Error(`Verify OCR for "${file.name}" in the evidence panel before drafting.`);
     try {
       extracted = draftingText(extraction, file.name);

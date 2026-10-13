@@ -60,7 +60,7 @@ export function parseTsv(tsv: string): { text: string; confidence: number | null
   return { text: [...lines.values()].map(words => words.join(" ")).join("\n"), confidence: weight ? Math.round(weighted / weight) : null };
 }
 
-export async function extractWithOcr(buffer: Buffer, contentType: string, name: string, language: OcrLanguage = "eng"): Promise<DocumentExtraction> {
+export async function extractWithOcr(buffer: Buffer, contentType: string, name: string, language: OcrLanguage = "eng", onProgress?: (completedPages: number, totalPages: number, stage: string) => Promise<void>): Promise<DocumentExtraction> {
   if (buffer.length > MAX_DOCUMENT_BYTES) throw new Error("Documents must be 25 MB or smaller.");
   if (!Object.hasOwn(OCR_LANGUAGES, language)) throw new Error("Select English, Urdu, or English + Urdu for local OCR.");
   const result: DocumentExtraction = { sourceText: "", ocrText: "", confidence: null, pages: [], status: "not_needed", error: null, reviewedText: null, reviewedAt: null, language, engine: `Local Tesseract (${OCR_LANGUAGES[language]})` };
@@ -96,6 +96,7 @@ export async function extractWithOcr(buffer: Buffer, contentType: string, name: 
       result.sourceText = await extractDocumentText(buffer, contentType, name);
     } else pageNumbers = [1];
     if (result.sourceText.length > MAX_SOURCE_TEXT) throw new Error("Extracted source text exceeds the 1,000,000 character limit. Split the document.");
+    await onProgress?.(0, pageNumbers.length, pageNumbers.length ? "Recognizing scanned pages" : "Saving embedded text");
     if (!pageNumbers.length) return result;
     // Tesseract can succeed using only one installed language from a combination.
     // Fail explicitly instead of silently reading mixed scans as English only.
@@ -127,6 +128,7 @@ export async function extractWithOcr(buffer: Buffer, contentType: string, name: 
         if (/[\u0600-\u06ff]/u.test(candidate.text)) recognized = candidate;
       }
       result.pages.push({ page, ...recognized });
+      await onProgress?.(result.pages.length, pageNumbers.length, "Recognizing scanned pages");
     }
     result.ocrText = result.pages.map(page => `[OCR page ${page.page}]\n${page.text}`).join("\n\n");
     const scores = result.pages.filter(page => page.confidence !== null);
@@ -140,8 +142,8 @@ export async function extractWithOcr(buffer: Buffer, contentType: string, name: 
     result.error = error instanceof Error && "killed" in error && error.killed === true
       ? "Local OCR exceeded its processing time limit. Retry reading this document; your original remains saved and no unverified OCR text was used."
       : error instanceof Error ? error.message : "Local OCR failed.";
-    if (result.sourceText.length > MAX_SOURCE_TEXT) result.sourceText = "";
-    if (result.ocrText.length > MAX_TEXT) { result.ocrText = ""; result.pages = []; }
+    // Failed runs must not publish partial OCR or embedded text.
+    result.sourceText = ""; result.ocrText = ""; result.pages = []; result.confidence = null;
   } finally {
     if (directory) await rm(directory, { recursive: true, force: true });
   }

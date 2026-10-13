@@ -47,12 +47,36 @@ export type DocumentExtractionStatus = typeof DocumentExtractionStatus[keyof typ
 
 
 export const DocumentExtractionStatus = {
+  queued: 'queued',
+  running: 'running',
   not_needed: 'not_needed',
   needs_review: 'needs_review',
   verified: 'verified',
   rejected: 'rejected',
   failed: 'failed',
 } as const;
+
+export type DocumentExtractionJobStatus = typeof DocumentExtractionJobStatus[keyof typeof DocumentExtractionJobStatus];
+
+
+export const DocumentExtractionJobStatus = {
+  queued: 'queued',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+} as const;
+
+export type DocumentExtractionJob = {
+  id: string;
+  status: DocumentExtractionJobStatus;
+  completedPages: number;
+  /** @nullable */
+  totalPages: number | null;
+  stage: string;
+  queuedAt: string;
+  /** @nullable */
+  finishedAt: string | null;
+};
 
 export type DocumentExtractionPagesItem = {
   page: number;
@@ -75,6 +99,7 @@ export interface DocumentExtraction {
   reviewedAt: string | null;
   engine: string;
   language?: OcrLanguage;
+  job?: DocumentExtractionJob;
   pages: DocumentExtractionPagesItem[];
 }
 
