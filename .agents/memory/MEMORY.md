@@ -7,5 +7,6 @@
 - [OCR execution budget](ocr-execution.md) — limit native threads as well as concurrent jobs; default engine parallelism slowed small scans under the CPU quota.
 - [Production document reading](production-document-reading.md) — declare native PDF utilities explicitly; distinguish repeated logos/watermarks from actual scans.
 - [Live web research](live-web-research.md) — search rejects strict JSON mode; validate prompt-requested JSON and retain provider-citation grounding.
+- [Consent dialog placement](dialog-placement.md) — transformed long pages can put inline fixed dialogs off-screen; keep viewport overlays outside animated containers.
 - [Company evidence validity](company-evidence-policy.md) — per-tender review, inclusive validity dates, and retained tender snapshots when library evidence is removed.
 - [Multilingual OCR fixtures](ocr-fixture-rendering.md) — explicitly register Arabic and Latin fonts; missing-glyph images can look like engine recognition failures.

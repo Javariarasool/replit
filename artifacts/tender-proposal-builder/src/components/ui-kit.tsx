@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { CircleAlert, FolderOpen, RotateCcw, X } from 'lucide-react';
 
 export const cn = (...values: Array<string | false | undefined>) => values.filter(Boolean).join(' ');
@@ -34,12 +35,15 @@ export function StatusPill({ value }: { value: string }) {
   return <Pill tone={tone}>{labels[value] ?? value.replaceAll('_', ' ')}</Pill>;
 }
 export function Dialog({ title, description, onClose, children, wide = false }: { title: string; description?: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/35 p-4 backdrop-blur-[2px]" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+  if (typeof document === 'undefined') return null;
+  // Animated pages retain a transform, which otherwise makes fixed dialogs
+  // relative to the full page instead of the viewport.
+  return createPortal(<div className="fixed inset-0 z-50 grid place-items-center bg-foreground/35 p-4 backdrop-blur-[2px]" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
     <div role="dialog" aria-modal="true" className={cn('enter max-h-[92dvh] w-full overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl', wide ? 'max-w-2xl' : 'max-w-lg')}>
       <div className="flex items-start justify-between border-b border-border px-6 py-5"><div><h2 className="font-[Manrope] text-lg font-bold">{title}</h2>{description && <p className="mt-1 max-w-lg text-sm leading-5 text-muted-foreground">{description}</p>}</div><button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" aria-label="Close dialog" data-testid="button-close-dialog"><X size={18}/></button></div>
       <div className="p-6">{children}</div>
     </div>
-  </div>;
+  </div>, document.body);
 }
 export function EmptyState({ title, body, icon = <FolderOpen size={20}/> }: { title: string; body: string; icon?: ReactNode }) {
   return <div className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/60 px-5 py-10 text-center"><div className="grid size-10 place-items-center rounded-xl bg-secondary text-primary">{icon}</div><p className="mt-3 text-sm font-semibold">{title}</p><p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">{body}</p></div>;

@@ -21,7 +21,7 @@ export function RequirementCard({ row, tender, files }: { row: RequirementItem; 
   const fail = (e: unknown) => { setError(errorText(e)); refresh(); };
   const approve = () => { setError(''); update.mutate({ requirementId: row.id, data: { reviewStatus: 'approved', confirmed: true } }, { onSuccess: refresh, onError: fail }); };
   const unapprove = () => { setError(''); update.mutate({ requirementId: row.id, data: { reviewStatus: 'pending' } }, { onSuccess: refresh, onError: fail }); };
-  const runResearch = () => { setError(''); research.mutate({ requirementId: row.id, data: { aiConsent: true } }, { onSuccess: refresh, onError: fail }); };
+  const runResearch = () => { setError(''); setOpen(true); research.mutate({ requirementId: row.id, data: { aiConsent: true } }, { onSuccess: refresh, onError: fail }); };
   const confirmConsent = () => {
     const mode = consent; setConsent(null); setAiOk(false);
     if (mode === 'approve') { setError(''); update.mutate({ requirementId: row.id, data: { reviewStatus: 'approved', confirmed: true } }, { onSuccess: () => { refresh(); runResearch(); }, onError: fail }); } else runResearch();
@@ -56,7 +56,8 @@ export function RequirementCard({ row, tender, files }: { row: RequirementItem; 
         {row.researchStatus === 'failed' && <div role="alert" className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">Research failed: {row.researchError ?? 'No reason given.'}{canResearch && <Button variant="secondary" className="ml-3 text-xs" disabled={busy} onClick={() => setConsent('research')}>Retry research</Button>}</div>}
         {!approved && <p className="text-xs text-muted-foreground">Approve this clause before researching suppliers.</p>}
         {row.lastResearchedAt && <p className="text-xs text-muted-foreground">Last researched {new Date(row.lastResearchedAt).toLocaleString('en-PK')}</p>}
-        {row.options.length === 0 && row.researchStatus !== 'failed' && <p className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">No options yet. Research suppliers or add one manually.</p>}
+        {!research.isPending && row.options.length === 0 && row.researchStatus === 'complete' && <p role="status" className="rounded-lg border border-amber-900/20 bg-amber-900/5 p-4 text-xs text-amber-950">{row.researchError ?? 'Research finished without a source-grounded candidate. Add an OEM datasheet or supplier quotation manually, or try researching again.'}</p>}
+        {!research.isPending && row.options.length === 0 && row.researchStatus === 'idle' && <p className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">No options yet. Research suppliers or add one manually.</p>}
         {row.options.map(o => <OptionCard key={o.id} row={row} option={o} files={files} busy={busy} onSelect={() => setSelecting(o)} onDeselect={() => { setError(''); select.mutate({ requirementId: row.id, data: { optionId: null, confirmed: true } }, { onSuccess: refresh, onError: fail }); }}/>)}
       </section>}
     </div>}
