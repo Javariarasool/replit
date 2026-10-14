@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assembleTenderRequirements, extractSectionWithRecovery, InvalidSectionOutputError, parseSectionOutput, responseJson } from "./tender-requirements";
+import { assembleTenderRequirements, extractSectionWithRecovery, InvalidSectionOutputError, MAIN_ITEM_GROUPING_INSTRUCTION, parseSectionOutput, responseJson } from "./tender-requirements";
 import { parseSavedRequirementSelection, savedRequirementFilterInput } from "./requirement-filter";
 
 test("provider JSON wrappers are accepted only when the entire response is complete JSON", () => {
@@ -9,6 +9,14 @@ test("provider JSON wrappers are accepted only when the entire response is compl
   assert.deepEqual(responseJson("```json\n" + JSON.stringify(value) + "\n```"), value);
   assert.throws(() => responseJson("Here is a fragment:\n" + JSON.stringify(value)), InvalidSectionOutputError);
   assert.throws(() => responseJson('{"summary":"unfinished"'), InvalidSectionOutputError);
+});
+test("extraction prompt groups associated assessed requirements under each main hardware, software, or service deliverable", () => {
+  assert.match(MAIN_ITEM_GROUPING_INSTRUCTION, /hardware\/equipment, software .* and services/);
+  assert.match(MAIN_ITEM_GROUPING_INSTRUCTION, /Group its associated assessed requirements/);
+  assert.match(MAIN_ITEM_GROUPING_INSTRUCTION, /Do not create separate checklist items/);
+  assert.match(MAIN_ITEM_GROUPING_INSTRUCTION, /Keep distinct hardware, software, and standalone service deliverables separate/);
+  assert.match(MAIN_ITEM_GROUPING_INSTRUCTION, /Keep bidder eligibility, bidder-wide evaluation criteria, and mandatory forms\/evidence as separate items/);
+  assert.match(MAIN_ITEM_GROUPING_INSTRUCTION, /never drop a condition to shorten a grouped item/);
 });
 test("saved-list filtering classifies every original index exactly once", () => {
   const entries = [{ ...result("Mandatory evaluated certification.").items[0]!, sourceQuote: "Mandatory certification" }];

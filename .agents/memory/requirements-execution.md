@@ -15,6 +15,12 @@ Only assessed requirements belong in either the checklist or the requirements br
 
 **How to apply:** Build the requirements brief from validated assessed items, not free-form model narrative. Preserve exact constraints and source references; keep human review mandatory. Do not drop remaining requirements to fit an arbitrary per-chunk item limit.
 
+Group associated technical requirements beneath the main hardware, software, or service deliverable they govern rather than creating a separate card for each parameter.
+
+**Why:** The user wants reviewers to see each main tender deliverable with its related requirements together while still identifying distinct procurable items.
+
+**How to apply:** Keep distinct equipment, software, and standalone services separate; retain every associated constraint in that main item's details. Keep bidder-wide eligibility, scored criteria, and mandatory submissions separate when independently assessed.
+
 Earlier unfinished jobs may switch strategies only against the same already-consented sources. Retain their checkpoints privately until the full replacement succeeds.
 
 **Why:** Changing execution must not erase human work or silently authorize newly uploaded documents.
